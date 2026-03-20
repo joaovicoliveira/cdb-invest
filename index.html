@@ -6,7 +6,29 @@
 <title>CDB Invest v2.1 — Controle de Investimentos</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBsx_lpklPd0qqHSB3CgAm7YZboRBmBkwg",
+    authDomain: "cdb-invest.firebaseapp.com",
+    projectId: "cdb-invest",
+    storageBucket: "cdb-invest.firebasestorage.app",
+    messagingSenderId: "1061611682741",
+    appId: "1:1061611682741:web:ab5c0f7a84120a594a37fc"
+  };
+
+  const _fbApp  = initializeApp(firebaseConfig);
+  const _fbAuth = getAuth(_fbApp);
+  const _fbDb   = getFirestore(_fbApp);
+
+  // Expoe globalmente para o codigo legado
+  window._fbAuth = _fbAuth;
+  window._fbDb   = _fbDb;
+  window._fbFns  = { signInWithEmailAndPassword, signOut, onAuthStateChanged, collection, doc, getDocs, setDoc, deleteDoc, query, where, orderBy };
+</script>
 <style>
   :root {
     --bg: #0a0d14;
@@ -1344,10 +1366,8 @@
 
 <script>
 
-// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
-const DB_URL = 'https://nhxgphqybemziwwztwmc.supabase.co';
-const DB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM';
-const _sb = supabase.createClient(DB_URL, DB_KEY);
+// ─── FIREBASE CONFIG (inicializado via module script acima) ──────────────────
+// _fbAuth e _fbDb ficam disponiveis via window apos o module carregar
 
 
 
@@ -1480,45 +1500,6 @@ function isBusinessDayBCB(dateStr) {
 
 
 
-async function loadFromDb() {
-  const res = await fetch(DB_URL + '/rest/v1/investments?select=*&user_id=eq.default&order=start_date', {
-    headers: { 'apikey': DB_KEY, 'Authorization': 'Bearer ' + DB_KEY }
-  });
-  if (!res.ok) {
-    console.warn('DB read error:', res.status, await res.text());
-    return false;
-  }
-  const data = await res.json();
-  if (Array.isArray(data) && data.length > 0) {
-    investments = data.map(r => ({
-      id: r.id,
-      name: r.name,
-      value: parseFloat(r.value),
-      pctCdi: parseFloat(r.pct_cdi),
-      start: r.start_date,
-      end: r.end_date,
-      liquidity: r.liquidity,
-      type: r.type,
-      resgates: r.resgates ? (typeof r.resgates === 'string' ? JSON.parse(r.resgates) : r.resgates) : []
-    }));
-    localStorage.setItem('cdb_investments', JSON.stringify(investments));
-    return true;
-  }
-  return false;
-}
-
-
-
-async function loadSelicFromDb() {
-  const data = await dbFetch('selic_custom', 'select=*&user_id=eq.default&order=date');
-  if (Array.isArray(data) && data.length > 0) {
-    window._selicCustom = data.map(r => ({ date: r.date, selic: parseFloat(r.selic) }));
-    localStorage.setItem('cdb_selic_custom', JSON.stringify(window._selicCustom));
-  syncSelicToDb();(e => console.warn('Selic sync error:', e));
-    return true;
-  }
-  return false;
-}
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let investments = [];
@@ -1626,49 +1607,27 @@ async function initAppAsync() {
     localStorage.removeItem('cdb_cdi_cache_date');
     localStorage.removeItem('cdb_cdi_cache_version');
   }
-  const stored = localStorage.getItem('cdb_auth_token');
-  if (stored) {
-    try {
-      const sess = JSON.parse(stored);
-      // Token ainda valido
-      if (sess.expires_at && sess.expires_at > Date.now()) {
-        _currentUser = { id: sess.user_id, email: sess.email, access_token: sess.access_token };
-        await onLoginSuccess();
-        return;
+  // Firebase onAuthStateChanged cuida da sessao automaticamente
+  // Aguarda Firebase estar pronto
+  await new Promise(resolve => {
+    const check = setInterval(() => {
+      if (window._fbAuth) {
+        clearInterval(check);
+        resolve();
       }
-      // Token expirado - tenta renovar com refresh_token
-      if (sess.refresh_token) {
-        try {
-          const res = await fetch(DB_URL + '/auth/v1/token?grant_type=refresh_token', {
-            method: 'POST',
-            headers: { 'apikey': DB_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh_token: sess.refresh_token })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.access_token) {
-              const newSess = {
-                access_token: data.access_token,
-                refresh_token: data.refresh_token || sess.refresh_token,
-                user_id: data.user ? data.user.id : sess.user_id,
-                email: data.user ? data.user.email : sess.email,
-                expires_at: Date.now() + (data.expires_in || 3600) * 1000
-              };
-              localStorage.setItem('cdb_auth_token', JSON.stringify(newSess));
-              _currentUser = { id: newSess.user_id, email: newSess.email, access_token: newSess.access_token };
-              await onLoginSuccess();
-              return;
-            }
-          }
-        } catch(e) { console.warn('Token refresh error:', e); }
-      }
-    } catch(e) {}
-    localStorage.removeItem('cdb_auth_token');
-  }
-  // Sem sessao valida - mostra login
+    }, 50);
+  });
+  window._fbFns.onAuthStateChanged(window._fbAuth, async (user) => {
+    if (user) {
+      _currentUser = { id: user.uid, email: user.email, access_token: user.uid };
+      await onLoginSuccess();
+    } else {
+      showLogin();
+    }
+  });
 }
 
-// ─── THEME ────────────────────────────────────────────────────────────────────
+// ─── THEME// ─── THEME ────────────────────────────────────────────────────────────────────
 function toggleTheme() {
   theme = theme === DARK ? LIGHT : DARK;
   localStorage.setItem('cdb_theme', theme);
@@ -3287,39 +3246,33 @@ async function doLogin() {
   if (!email || !pass) { errEl.textContent = 'Preencha e-mail e senha.'; errEl.style.display = 'block'; return; }
   btn.disabled = true; spin.style.display = 'block';
   try {
-    const { data, error } = await _sb.auth.signInWithPassword({ email, password: pass });
+    const { signInWithEmailAndPassword } = window._fbFns;
+    const cred = await signInWithEmailAndPassword(window._fbAuth, email, pass);
+    const user = cred.user;
+    _currentUser = { id: user.uid, email: user.email, access_token: user.uid };
     btn.disabled = false; spin.style.display = 'none';
-    if (error) {
-      const msgs = { 'Invalid login credentials': 'E-mail ou senha incorretos.', 'Email not confirmed': 'Confirme seu e-mail.' };
-      errEl.textContent = msgs[error.message] || error.message || 'Erro ao fazer login';
-      errEl.style.display = 'block';
-      return;
-    }
-    const sess = {
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      user_id: data.user.id,
-      email: data.user.email,
-      expires_at: Date.now() + (data.session.expires_in || 3600) * 1000
-    };
-    localStorage.setItem('cdb_auth_token', JSON.stringify(sess));
-    _currentUser = { id: data.user.id, email: data.user.email, access_token: data.session.access_token };
     await onLoginSuccess();
   } catch(e) {
     btn.disabled = false; spin.style.display = 'none';
-    errEl.textContent = 'Erro de conexão: ' + e.message;
+    const msgs = {
+      'auth/invalid-credential': 'E-mail ou senha incorretos.',
+      'auth/user-not-found': 'Usuário não encontrado.',
+      'auth/wrong-password': 'Senha incorreta.',
+      'auth/invalid-email': 'E-mail inválido.'
+    };
+    errEl.textContent = msgs[e.code] || e.message || 'Erro ao fazer login';
     errEl.style.display = 'block';
   }
 }
-
 async function doLogout() {
   if (!confirm('Sair do app?')) return;
+  const { signOut } = window._fbFns;
+  await signOut(window._fbAuth).catch(() => {});
   localStorage.removeItem('cdb_auth_token');
   _currentUser = null;
   investments = [];
   showLogin();
 }
-
 // ── SIMULADOR → NOVO CDB ─────────────────────────────────────────────────────
 function simToNewCDB() {
   const value  = getMoneyValue(document.getElementById('sim-value')) || 0;
@@ -3374,7 +3327,7 @@ function _getDisplayName() {
   return _currentUser.user_metadata?.display_name || _currentUser.user_metadata?.name || _currentUser.email?.split('@')[0] || 'Usuário';
 }
 function _getAvatarUrl() {
-  return _currentUser?.user_metadata?.avatar_url || null;
+  return localStorage.getItem('cdb_avatar') || _currentUser?.user_metadata?.avatar_url || null;
 }
 function _getInitial() {
   const name = _getDisplayName();
@@ -3443,14 +3396,13 @@ async function saveProfileInfo() {
   msg.className = 'profile-msg';
   if (!name) { msg.textContent = 'Informe um nome de exibição.'; msg.className = 'profile-msg error'; return; }
   btn.disabled = true; btn.textContent = 'Salvando...';
-  const res_u = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/auth/v1/user', { method: 'PUT', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM', 'Authorization': 'Bearer ' + (_currentUser&&_currentUser.access_token||''), 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { display_name: name } }) }); const error = res_u.ok ? null : await res_u.json();
+  // Salva nome no localStorage (Firebase nao tem user_metadata)
+  if (!_currentUser.user_metadata) _currentUser.user_metadata = {};
+  _currentUser.user_metadata.display_name = name;
+  localStorage.setItem('cdb_display_name', name);
   btn.disabled = false; btn.textContent = 'Salvar alterações';
-  if (error) { msg.textContent = 'Erro: ' + error.message; msg.className = 'profile-msg error'; }
-  else {
-    _currentUser.user_metadata = { ..._currentUser.user_metadata, display_name: name };
-    updateUserUI();
-    msg.textContent = '✓ Perfil atualizado com sucesso!'; msg.className = 'profile-msg success';
-  }
+  updateUserUI();
+  msg.textContent = '✓ Perfil atualizado com sucesso!'; msg.className = 'profile-msg success';
 }
 
 async function saveProfilePassword() {
@@ -3463,13 +3415,16 @@ async function saveProfilePassword() {
   if (np.length < 6) { msg.textContent = 'A senha precisa ter no mínimo 6 caracteres.'; msg.className = 'profile-msg error'; return; }
   if (np !== cp) { msg.textContent = 'As senhas não coincidem.'; msg.className = 'profile-msg error'; return; }
   btn.disabled = true; btn.textContent = 'Atualizando...';
-  const res_p = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/auth/v1/user', { method: 'PUT', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM', 'Authorization': 'Bearer ' + (_currentUser&&_currentUser.access_token||''), 'Content-Type': 'application/json' }, body: JSON.stringify({ password: np }) }); const error = res_p.ok ? null : await res_p.json();
-  btn.disabled = false; btn.textContent = 'Atualizar senha';
-  if (error) { msg.textContent = 'Erro: ' + error.message; msg.className = 'profile-msg error'; }
-  else {
+  try {
+    const { updatePassword } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    await updatePassword(window._fbAuth.currentUser, np);
+    btn.disabled = false; btn.textContent = 'Atualizar senha';
     document.getElementById('profile-new-pass').value = '';
     document.getElementById('profile-confirm-pass').value = '';
     msg.textContent = '✓ Senha alterada com sucesso!'; msg.className = 'profile-msg success';
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Atualizar senha';
+    msg.textContent = 'Erro: ' + e.message; msg.className = 'profile-msg error';
   }
 }
 
@@ -3480,10 +3435,10 @@ async function handleProfilePhoto(event) {
   const reader = new FileReader();
   reader.onload = async e => {
     const dataUrl = e.target.result;
-    // Store in user_metadata as data URL (small enough for Supabase)
-    const res_a = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/auth/v1/user', { method: 'PUT', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM', 'Authorization': 'Bearer ' + (_currentUser&&_currentUser.access_token||''), 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { avatar_url: dataUrl } }) }); const error = res_a.ok ? null : await res_a.json();
-    if (error) { alert('Erro ao salvar foto: ' + error.message); return; }
-    _currentUser.user_metadata = { ..._currentUser.user_metadata, avatar_url: dataUrl };
+    // Salva foto no localStorage
+    if (!_currentUser.user_metadata) _currentUser.user_metadata = {};
+    _currentUser.user_metadata.avatar_url = dataUrl;
+    localStorage.setItem('cdb_avatar', dataUrl);
     updateUserUI();
   };
   reader.readAsDataURL(file);
@@ -3493,20 +3448,14 @@ async function handleProfilePhoto(event) {
 async function loadAllData() {
   if (!_currentUser) { console.warn('[loadAllData] sem usuario'); return; }
   const uid = _currentUser.id;
+  const { collection, getDocs, query, where, orderBy } = window._fbFns;
   console.log('[loadAllData] uid:', uid);
   try {
-    // Seta o token do usuario no cliente supabase
-    await _sb.auth.setSession({
-      access_token: _currentUser.access_token,
-      refresh_token: (JSON.parse(localStorage.getItem('cdb_auth_token') || '{}')).refresh_token || ''
-    });
-    const { data: invData, error: invError } = await _sb
-      .from('investments')
-      .select('*')
-      .eq('user_id', uid)
-      .order('start_date');
-    console.log('[loadAllData] investments:', invData?.length, invError?.message);
-    if (!invError && Array.isArray(invData) && invData.length > 0) {
+    const invQ = query(collection(window._fbDb, 'investments'), where('user_id', '==', uid), orderBy('start_date'));
+    const invSnap = await getDocs(invQ);
+    const invData = invSnap.docs.map(d => d.data());
+    console.log('[loadAllData] investments:', invData.length);
+    if (invData.length > 0) {
       investments = invData.map(r => ({
         id: r.id, name: r.name, value: parseFloat(r.value),
         pctCdi: parseFloat(r.pct_cdi), start: r.start_date,
@@ -3515,39 +3464,38 @@ async function loadAllData() {
       }));
       localStorage.setItem('cdb_investments', JSON.stringify(investments));
     } else {
-      console.log('[loadAllData] usando localStorage');
+      console.log('[loadAllData] banco vazio, usando localStorage');
       investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
     }
   } catch(e) {
-    console.warn('[loadAllData] excecao:', e);
+    console.warn('[loadAllData] excecao:', e.message);
     investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
   }
   try {
-    const { data: selicData } = await _sb
-      .from('selic_custom')
-      .select('*')
-      .eq('user_id', uid)
-      .order('date');
-    if (Array.isArray(selicData)) {
+    const selQ = query(collection(window._fbDb, 'selic_custom'), where('user_id', '==', uid), orderBy('date'));
+    const selSnap = await getDocs(selQ);
+    const selicData = selSnap.docs.map(d => d.data());
+    if (selicData.length > 0) {
       window._selicCustom = selicData.map(r => ({ date: r.date, selic: parseFloat(r.selic) }));
     }
   } catch(e) {}
   updateSelicDisplay();
 }
-
 async function saveData() {
   localStorage.setItem('cdb_investments', JSON.stringify(investments));
   if (!_currentUser) return;
-  const rows = investments.map(inv => ({
-    id: inv.id, user_id: _currentUser.id,
-    name: inv.name, value: inv.value, pct_cdi: inv.pctCdi,
-    start_date: inv.start, end_date: inv.end,
-    liquidity: inv.liquidity, type: inv.type,
-    resgates: JSON.stringify(inv.resgates || [])
-  }));
-  if (rows.length > 0) await sbUpsert('investments', rows);
+  const { collection, doc, setDoc } = window._fbFns;
+  const uid = _currentUser.id;
+  for (const inv of investments) {
+    const row = {
+      id: inv.id, user_id: uid, name: inv.name, value: inv.value,
+      pct_cdi: inv.pctCdi, start_date: inv.start, end_date: inv.end,
+      liquidity: inv.liquidity, type: inv.type,
+      resgates: JSON.stringify(inv.resgates || [])
+    };
+    await setDoc(doc(collection(window._fbDb, 'investments'), inv.id), row).catch(e => console.warn('saveData err:', e.message));
+  }
 }
-
 async function saveInvestment() {
   const name      = document.getElementById('f-name').value.trim();
   const value     = getMoneyValue(document.getElementById('f-value'));
@@ -3566,7 +3514,8 @@ async function saveInvestment() {
     const row = { id, user_id: _currentUser.id, name, value, pct_cdi: pctCdi,
                   start_date: start, end_date: end, liquidity, type,
                   resgates: JSON.stringify(inv.resgates) };
-    await sbUpsert('investments', row);
+    const { doc, collection, setDoc } = window._fbFns;
+    await setDoc(doc(collection(window._fbDb, 'investments'), id), row).catch(e => console.warn('saveInvestment err:', e.message));
   }
   localStorage.setItem('cdb_investments', JSON.stringify(investments));
   renderAll(); closeModal();
@@ -3576,21 +3525,29 @@ async function deleteInvestment(id) {
   if (!confirm('Excluir este investimento?')) return;
   investments = investments.filter(i => i.id !== id);
   localStorage.setItem('cdb_investments', JSON.stringify(investments));
-  if (_currentUser) await sbDelete('investments', 'id=eq.' + id + '&user_id=eq.' + _currentUser.id);
+  if (_currentUser) {
+    const { doc, collection, deleteDoc } = window._fbFns;
+    await deleteDoc(doc(collection(window._fbDb, 'investments'), id)).catch(e => console.warn('deleteInv err:', e.message));
+  }
   renderAll();
 }
 
 // Selic custom sync
 async function syncSelicToDb() {
   if (!_currentUser) return;
+  const uid = _currentUser.id;
   const custom = window._selicCustom || [];
   localStorage.setItem('cdb_selic_custom', JSON.stringify(custom));
-  await sbDelete('selic_custom', 'user_id=eq.' + _currentUser.id);
-  if (custom.length > 0) {
-    await sbUpsert('selic_custom', custom.map(e => ({
-      user_id: _currentUser.id, date: e.date, selic: e.selic
-    })));
-  }
+  const { collection, doc, setDoc, getDocs, query, where, deleteDoc } = window._fbFns;
+  try {
+    const oldQ = query(collection(window._fbDb, 'selic_custom'), where('user_id', '==', uid));
+    const oldSnap = await getDocs(oldQ);
+    for (const d of oldSnap.docs) await deleteDoc(d.ref);
+    for (const e of custom) {
+      const id = uid + '_' + e.date;
+      await setDoc(doc(collection(window._fbDb, 'selic_custom'), id), { user_id: uid, date: e.date, selic: e.selic });
+    }
+  } catch(e) { console.warn('syncSelic err:', e.message); }
 }
 
 // Restore data
@@ -3611,13 +3568,17 @@ async function restoreData(event) {
       }));
       localStorage.setItem('cdb_investments', JSON.stringify(investments));
       if (_currentUser) {
-        await sbDelete('investments', 'user_id=eq.' + _currentUser.id);
-        await sbUpsert('investments', investments.map(inv => ({
-          id: inv.id, user_id: _currentUser.id, name: inv.name,
-          value: inv.value, pct_cdi: inv.pctCdi, start_date: inv.start,
-          end_date: inv.end, liquidity: inv.liquidity, type: inv.type,
-          resgates: JSON.stringify(inv.resgates || [])
-        })));
+        const { collection, doc, setDoc, getDocs, query, where, deleteDoc } = window._fbFns;
+        const uid = _currentUser.id;
+        const oldQ = query(collection(window._fbDb, 'investments'), where('user_id', '==', uid));
+        const oldSnap = await getDocs(oldQ);
+        for (const d of oldSnap.docs) await deleteDoc(d.ref);
+        for (const inv of investments) {
+          const row = { id: inv.id, user_id: uid, name: inv.name, value: inv.value,
+            pct_cdi: inv.pctCdi, start_date: inv.start, end_date: inv.end,
+            liquidity: inv.liquidity, type: inv.type, resgates: JSON.stringify(inv.resgates || []) };
+          await setDoc(doc(collection(window._fbDb, 'investments'), inv.id), row);
+        }
       }
       renderAll();
       alert('Dados restaurados com sucesso!');
@@ -3642,48 +3603,6 @@ function showSyncStatus(state, msg) {
   else { el.style.cssText+=';background:rgba(255,71,87,0.9);color:#fff;opacity:1;'; el.textContent='⚠ '+( msg||'erro'); setTimeout(()=>{el.style.opacity='0';},5000); }
 }
 
-function getAuthHeaders() {
-  const token = _currentUser && _currentUser.access_token ? _currentUser.access_token : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM';
-  return {
-    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM',
-    'Authorization': 'Bearer ' + token,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=minimal'
-  };
-}
-
-async function sbGet(table, query) {
-  // Parse query string into filters for supabase client
-  const params = new URLSearchParams(query);
-  let q = _sb.from(table).select(params.get('select') || '*');
-  for (const [k, v] of params.entries()) {
-    if (k === 'select' || k === 'order') continue;
-    const match = k.match(/^(.+)$/);
-    if (v.startsWith('eq.')) q = q.eq(k, v.slice(3));
-  }
-  const orderParam = params.get('order');
-  if (orderParam) q = q.order(orderParam.split('.')[0], { ascending: !orderParam.includes('.desc') });
-  const { data, error } = await q;
-  if (error) { console.warn('[sbGet]', table, error.message); return []; }
-  return data || [];
-}
-
-async function sbUpsert(table, data) {
-  const { error } = await _sb.from(table).upsert(data, { onConflict: 'id' });
-  if (error) console.warn('[sbUpsert]', table, error.message);
-  return !error;
-}
-
-async function sbDelete(table, query) {
-  const params = new URLSearchParams(query);
-  let q = _sb.from(table).delete();
-  for (const [k, v] of params.entries()) {
-    if (v.startsWith('eq.')) q = q.eq(k, v.slice(3));
-  }
-  const { error } = await q;
-  if (error) console.warn('[sbDelete]', table, error.message);
-  return !error;
-}
 
 function fmt(v) { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0); }
 function fmtShort(v) { if (v>=1e6) return (v/1e6).toFixed(1)+'M'; if (v>=1e3) return (v/1e3).toFixed(0)+'k'; return v.toFixed(0); }
