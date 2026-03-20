@@ -1,0 +1,3665 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDB Invest v2.1 — Controle de Investimentos</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0d14;
+    --surface: #111520;
+    --surface2: #161c2e;
+    --surface3: #1c2440;
+    --border: #1e2840;
+    --border2: #2a3550;
+    --accent: #00e5b0;
+    --accent2: #0088ff;
+    --accent3: #7c3aed;
+    --text: #e8ecf4;
+    --text2: #8b95ad;
+    --text3: #4a5568;
+    --danger: #ff4757;
+    --warning: #ffa502;
+    --success: #00e5b0;
+    --gold: #f5a623;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+    --glow: 0 0 30px rgba(0,229,176,0.15);
+  }
+  .light {
+    --bg: #f0f2f8;
+    --surface: #ffffff;
+    --surface2: #f7f8fc;
+    --surface3: #eef0f7;
+    --border: #e2e6f0;
+    --border2: #d0d5e8;
+    --accent: #00b88a;
+    --accent2: #0066cc;
+    --accent3: #6d28d9;
+    --text: #0f1928;
+    --text2: #4a5568;
+    --text3: #9ca3af;
+    --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    --glow: 0 0 20px rgba(0,184,138,0.1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Instrument Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+  }
+  .mono { font-family: 'DM Mono', monospace; }
+  .syne { font-family: 'Syne', sans-serif; }
+
+  /* SIDEBAR */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    height: 100vh;
+    top: 0; left: 0;
+    z-index: 100;
+    transition: transform 0.3s;
+  }
+  .sidebar-logo {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-mark {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .logo-sub { font-size: 11px; color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 2px; }
+  .nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text2);
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(0,229,176,0.12); color: var(--accent); }
+  .nav-item svg { flex-shrink: 0; }
+  .nav-section { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text3); padding: 14px 14px 6px; }
+  .sidebar-bottom { padding: 16px 12px; border-top: 1px solid var(--border); }
+
+  /* CDI INDICATOR */
+  .cdi-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .cdi-label { font-size: 10px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+  .cdi-row { display: flex; align-items: center; gap: 8px; }
+  .cdi-input {
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    width: 70px;
+    outline: none;
+  }
+  .cdi-pct { color: var(--text2); font-size: 13px; }
+
+  /* MAIN */
+  .main { margin-left: 240px; flex: 1; min-height: 100vh; }
+  .topbar {
+    height: 64px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .page-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; }
+  .topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+  /* ─── TABLE ACTION BUTTONS ─── */
+  .tbl-action-btn {
+    width: 30px; height: 30px; border-radius: var(--radius-sm);
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--surface2); border: 1px solid var(--border2);
+    color: var(--text3); cursor: pointer; transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .tbl-action-btn:hover { background: var(--surface3); color: var(--text); }
+  .tbl-action-btn.tbl-action-warn { color: var(--warning); border-color: rgba(255,165,2,0.25); }
+  .tbl-action-btn.tbl-action-warn:hover { background: rgba(255,165,2,0.1); }
+  .tbl-action-btn.tbl-action-danger { color: var(--danger); border-color: rgba(255,71,87,0.25); }
+  .tbl-action-btn.tbl-action-danger:hover { background: rgba(255,71,87,0.1); }
+
+  /* ─── USER AVATAR — só bolinha, desktop e mobile ─── */
+  /* ─── USER AVATAR & DROPDOWN ─── */
+  .user-avatar-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 10px 4px 4px; border-radius: 99px;
+    cursor: pointer; border: 1px solid transparent;
+    transition: all 0.2s; background: transparent; color: var(--text);
+  }
+  .user-avatar-btn:hover { background: var(--surface2); border-color: var(--border2); }
+  .user-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px;
+    color: #000; flex-shrink: 0; overflow: hidden; position: relative;
+  }
+  .user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .user-avatar-info { display: flex; flex-direction: column; }
+  .user-avatar-name { font-size: 13px; font-weight: 600; color: var(--text); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-avatar-email { display: none; }
+  .user-dropdown-arrow { display: none; }
+
+  .user-dropdown {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--radius); width: 240px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+    z-index: 300; overflow: hidden;
+    animation: dropdownIn 0.18s ease;
+  }
+  .user-dropdown.open { display: block; }
+  @keyframes dropdownIn { from { opacity: 0; transform: translateY(-8px); } }
+  .user-dropdown-header {
+    padding: 16px; background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .user-dropdown-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 17px;
+    color: #000; flex-shrink: 0; overflow: hidden;
+  }
+  .user-dropdown-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .user-dropdown-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .user-dropdown-mail { font-size: 11px; color: var(--text3); margin-top: 2px; word-break: break-all; }
+  .dropdown-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; font-size: 14px; color: var(--text2);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .dropdown-item:hover { background: var(--surface2); color: var(--text); }
+  .dropdown-item svg { flex-shrink: 0; }
+  .dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+  .dropdown-item.danger { color: var(--danger); }
+  .dropdown-item.danger:hover { background: rgba(239,68,68,0.08); }
+  .user-menu-wrap { position: relative; }
+
+  /* ─── PROFILE MODAL ─── */
+  .profile-avatar-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; margin-bottom: 28px;
+  }
+  .profile-avatar-big {
+    width: 88px; height: 88px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 36px;
+    color: #000; position: relative; cursor: pointer; overflow: hidden;
+    border: 3px solid var(--border2); transition: border-color 0.2s;
+  }
+  .profile-avatar-big:hover { border-color: var(--accent); }
+  .profile-avatar-big img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .profile-avatar-overlay {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.55);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s; border-radius: 50%;
+    font-size: 11px; color: #fff; font-weight: 600; letter-spacing: 0.3px; flex-direction: column; gap: 4px;
+  }
+  .profile-avatar-big:hover .profile-avatar-overlay { opacity: 1; }
+  .profile-section-title {
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--text3); margin-bottom: 12px; margin-top: 4px;
+  }
+  .profile-msg {
+    font-size: 13px; padding: 10px 14px; border-radius: var(--radius-sm);
+    margin-top: 12px; display: none;
+  }
+  .profile-msg.success { background: rgba(0,229,176,0.1); color: var(--accent); border: 1px solid rgba(0,229,176,0.25); display: block; }
+  .profile-msg.error   { background: rgba(239,68,68,0.1); color: var(--danger); border: 1px solid rgba(239,68,68,0.25); display: block; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 18px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-danger { background: rgba(255,71,87,0.1); color: var(--danger); border: 1px solid rgba(255,71,87,0.3); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid var(--border2);
+    color: var(--text2); cursor: pointer; transition: all 0.2s;
+  }
+  .icon-btn:hover { background: var(--surface2); color: var(--text); }
+
+  /* PAGES */
+  .page { display: none; padding: 32px; }
+  .page.active { display: block; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .card-sm { padding: 18px 20px; }
+
+  /* STAT CARDS */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  @media (min-width: 901px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-card.green::before { background: linear-gradient(90deg, var(--accent), transparent); }
+  .stat-card.blue::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .stat-card.purple::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+  .stat-card.gold::before { background: linear-gradient(90deg, var(--gold), transparent); }
+  .stat-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+  .stat-sub { font-size: 12px; color: var(--text2); margin-top: 6px; }
+  .stat-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; margin-top: 8px; }
+  .badge-green { background: rgba(0,229,176,0.12); color: var(--accent); }
+  .badge-red { background: rgba(255,71,87,0.12); color: var(--danger); }
+  .badge-blue { background: rgba(0,136,255,0.12); color: var(--accent2); }
+  .badge-gold { background: rgba(245,166,35,0.12); color: var(--gold); }
+
+  /* GRIDS */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .chart-container { height: 260px; position: relative; }
+  .chart-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 15px; margin-bottom: 16px; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 10px 14px;
+    font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--text3); font-weight: 500;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 14px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .td-name { font-weight: 600; font-size: 14px; }
+  .td-mono { font-family: 'DM Mono', monospace; font-size: 13px; }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;
+  }
+  .status-active { background: rgba(0,229,176,0.1); color: var(--accent); }
+  .status-soon { background: rgba(245,166,35,0.1); color: var(--gold); }
+  .status-expired { background: rgba(255,71,87,0.1); color: var(--danger); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* FORM */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+    z-index: 200; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 32px;
+    width: 560px; max-width: 95vw;
+    max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    animation: modalIn 0.25s ease;
+  }
+  @keyframes modalIn { from { opacity: 0; transform: translateY(20px) scale(0.97); } }
+  .modal-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 20px; margin-bottom: 24px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 12px; font-weight: 500; color: var(--text2); letter-spacing: 0.3px; }
+  input, select, textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 14px;
+    padding: 11px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,229,176,0.1); }
+  select option { background: var(--surface); }
+  .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  .section-title {
+    font-family: 'Syne', sans-serif; font-weight: 600; font-size: 16px;
+    margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+  }
+
+  /* PROGRESS BAR */
+  .progress { height: 5px; background: var(--surface3); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+  .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.5s; }
+
+  /* TIMELINE */
+  .timeline-item {
+    display: flex; gap: 16px; padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .timeline-item:last-child { border-bottom: none; }
+  .timeline-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+
+  /* ALERTS */
+  .alert {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; border-radius: var(--radius-sm);
+    border: 1px solid; margin-bottom: 10px; font-size: 13px;
+  }
+  .alert-warning { background: rgba(255,165,2,0.08); border-color: rgba(255,165,2,0.3); color: var(--warning); }
+  .alert-success { background: rgba(0,229,176,0.08); border-color: rgba(0,229,176,0.3); color: var(--accent); }
+  .alert-danger { background: rgba(255,71,87,0.08); border-color: rgba(255,71,87,0.3); color: var(--danger); }
+
+  /* SIMULATOR */
+  .sim-result {
+    background: linear-gradient(135deg, rgba(0,229,176,0.08), rgba(0,136,255,0.05));
+    border: 1px solid rgba(0,229,176,0.2);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .sim-big { font-family: 'Syne', sans-serif; font-size: 40px; font-weight: 800; color: var(--accent); }
+  .sim-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .sim-row:last-child { border-bottom: none; }
+
+  /* MONTH REPORT */
+  .month-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .month-card:hover { border-color: var(--accent); background: rgba(0,229,176,0.04); }
+  .month-name { font-weight: 600; font-size: 14px; }
+  .month-values { text-align: right; }
+  .month-gross { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500; color: var(--text); }
+  .month-net { font-size: 12px; color: var(--accent); }
+
+  /* EMPTY STATE */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-title { font-size: 18px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ─── TABLE ACTIONS BAR ─── */
+  .table-actions-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+  }
+  .table-search {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 0 12px;
+    flex: 1; max-width: 280px; height: 38px;
+  }
+  .table-search input {
+    background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 13px; width: 100%; padding: 0;
+    font-family: 'Instrument Sans', sans-serif; height: 100%;
+  }
+  .table-search svg { flex-shrink: 0; color: var(--text3); display: block; }
+  .table-count { font-size: 12px; color: var(--text3); white-space: nowrap; }
+
+  /* MOBILE */
+  /* MOBILE — Responsive */
+  .hamburger { display: none; }
+  .sidebar-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 99;
+    backdrop-filter: blur(2px);
+    transition: opacity 0.3s;
+  }
+  .sidebar-backdrop.open { display: block; animation: fadeInBg 0.3s ease; }
+  @keyframes fadeInBg { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ─── SCROLL INDICATOR ─── */
+  .scroll-hint {
+    position: fixed; bottom: 80px; right: 16px; z-index: 80;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 99px; padding: 6px 12px;
+    font-size: 11px; color: var(--text3);
+    display: flex; align-items: center; gap: 6px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.4s;
+  }
+
+  /* ─── FOCUS VISIBLE ─── */
+  button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ─── SMOOTH TRANSITIONS ─── */
+  .page { transition: none; }
+  .page.active { animation: fadeIn 0.25s ease; }
+
+  /* ─── TOPBAR CONTEXT PILL ─── */
+  #topbar-context { display: flex; align-items: center; }
+  @media (max-width: 900px) { #topbar-context { display: none; } }
+  .sidebar-backdrop.open { display: block; }
+
+  @media (max-width: 900px) {
+    .sidebar { transform: translateX(-100%); z-index: 100; transition: transform 0.3s; }
+    .sidebar.open { transform: translateX(0); box-shadow: 4px 0 40px rgba(0,0,0,0.5); }
+    .hamburger { display: flex; }
+    .main { margin-left: 0; }
+    .topbar { padding: 0 14px; height: 56px; }
+    .page-title { font-size: 15px; }
+    /* Ocultar nome/email do avatar no topbar — só mostrar avatar */
+    .user-avatar-info { display: none; }
+    .user-dropdown-arrow { display: none; }
+    .user-avatar-btn { padding: 4px; border-radius: 50%; }
+    /* Ocultar exportar e Novo CDB do topbar — vai para FAB e nav contextual */
+    .topbar .export-btn { display: none; }
+    .topbar .btn-primary.btn-sm { display: none; }
+    /* FAB visível */
+    .fab { display: flex; }
+    /* Bottom nav */
+    .mobile-nav-bar { display: flex; }
+    .page { padding: 14px 12px 80px; }
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .stat-card { padding: 14px 16px; }
+    .stat-value { font-size: 20px; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; gap: 14px; }
+    .card { padding: 16px; }
+    .chart-container { height: 200px; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 640px; }
+    .modal { padding: 20px; margin: 12px; width: calc(100vw - 24px); max-width: 100%; }
+    .form-grid { grid-template-columns: 1fr; gap: 12px; }
+    .sim-big { font-size: 28px; }
+    #page-selic .grid-2 { grid-template-columns: 1fr; }
+    #receive-by-month > div { grid-template-columns: 1fr !important; }
+    .table-search { max-width: 100%; }
+    .page-header { flex-wrap: wrap; gap: 10px; }
+  }
+
+  @media (max-width: 500px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-value { font-size: 18px; }
+    .stat-label { font-size: 10px; }
+    .page { padding: 10px 10px 80px; }
+    .card { padding: 14px; }
+    .chart-container { height: 180px; }
+    .topbar { padding: 0 10px; }
+    .page-title { font-size: 14px; }
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .page.active { animation: fadeIn 0.3s ease; }
+  .glow-accent { text-shadow: 0 0 20px rgba(0,229,176,0.5); }
+
+  /* PDF EXPORT HINT */
+  .export-btn { position: relative; }
+  .tooltip {
+    position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
+    background: var(--surface3); color: var(--text); font-size: 11px;
+    padding: 4px 8px; border-radius: 6px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .export-btn:hover .tooltip { opacity: 1; }
+  
+  /* TAG */
+  .tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+  .tag-diaria { background: rgba(0,136,255,0.1); color: var(--accent2); }
+  .tag-venc { background: rgba(124,58,237,0.1); color: var(--accent3); }
+
+  /* RESGATES */
+  .resgate-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-radius: var(--radius-sm);
+    background: var(--surface2); border: 1px solid var(--border);
+    margin-bottom: 8px; font-size: 13px;
+  }
+  .resgate-date { color: var(--text3); font-size: 11px; margin-top: 2px; }
+  .resgate-valor { font-family: 'DM Mono', monospace; color: var(--warning); font-weight: 600; }
+  .resgate-badge { background: rgba(255,165,2,0.1); color: var(--warning); border: 1px solid rgba(255,165,2,0.3); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .inv-has-resgate { border-left: 3px solid var(--warning) !important; }
+
+  #login-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;}
+  #login-screen.hidden{display:none;}
+  .login-box{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:40px;width:100%;max-width:400px;box-shadow:0 24px 80px rgba(0,0,0,0.5);}
+  .login-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:28px;color:var(--accent);margin-bottom:4px;}
+  .login-sub{font-size:12px;color:var(--text3);margin-bottom:32px;letter-spacing:1px;text-transform:uppercase;}
+  .login-err{background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.3);color:var(--danger);padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:16px;display:none;}
+  .login-spin{display:none;text-align:center;padding:8px;font-size:13px;color:var(--text3);}
+  .login-box { animation: modalIn 0.3s ease; }
+  /* Password toggle */
+  .pass-wrap { position: relative; }
+  .pass-toggle {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: var(--text3);
+    padding: 4px; transition: color 0.2s;
+  }
+  .pass-toggle:hover { color: var(--text2); }
+  .pass-wrap input { padding-right: 40px; }
+</style>
+</head>
+<body>
+
+<div id="login-screen" class="hidden">
+  <div class="login-box">
+    <div class="login-logo">CDB Invest</div>
+    <div class="login-sub">Controle de Renda Fixa</div>
+    <div class="login-err" id="login-err"></div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+    </div>
+    <div class="form-group" style="margin-bottom:20px;">
+      <label>Senha</label>
+      <div class="pass-wrap">
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        <button type="button" class="pass-toggle" onclick="togglePassVisibility()" title="Mostrar/ocultar senha" tabindex="-1">
+          <svg id="pass-eye-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()" id="login-btn" style="width:100%;justify-content:center;padding:13px;">Entrar</button>
+    <div class="login-spin" id="login-spin">Aguarde...</div>
+  </div>
+</div>
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeSidebar()"></div>
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">CDB Invest</div>
+      <div class="logo-sub">Controle de Renda Fixa</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Principal</div>
+      <div class="nav-item active" onclick="goPage('dashboard')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" onclick="goPage('investments')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Meus CDBs
+      </div>
+      <div class="nav-item" onclick="goPage('reports')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Relatórios
+      </div>
+      <div class="nav-section">Planejamento</div>
+      <div class="nav-item" onclick="goPage('planning')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Metas e Projeções
+      </div>
+      <div class="nav-section">Ferramentas</div>
+      <div class="nav-item" onclick="goPage('selic')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Histórico Selic
+      </div>
+      <div class="nav-item" onclick="goPage('simulator')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Simulador CDB
+      </div>
+      <div class="nav-item" onclick="goPage('alerts')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        Alertas
+        <span id="alert-count" style="margin-left:auto;background:var(--danger);color:#fff;font-size:10px;border-radius:99px;padding:1px 6px;display:none"></span>
+      </div>
+    </nav>
+    <div class="sidebar-bottom">
+      <!-- CDI Box -->
+      <div class="cdi-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div class="cdi-label" style="margin:0;">SELIC / CDI</div>
+          <span id="selic-source" style="font-size:9px;color:var(--text3);letter-spacing:0.5px;">HISTÓRICO</span>
+        </div>
+        <div class="cdi-row" style="margin-bottom:4px;">
+          <span style="font-size:11px;color:var(--text3);width:44px;">Selic</span>
+          <span class="cdi-input" id="selic-rate" style="font-size:18px;font-weight:500;cursor:default;">14,75</span>
+          <span class="cdi-pct">%</span>
+        </div>
+        <div class="cdi-row">
+          <span style="font-size:11px;color:var(--text3);width:44px;">CDI</span>
+          <span class="cdi-input" id="cdi-display" style="cursor:default;font-size:18px;">14,65</span>
+          <span class="cdi-pct">%</span>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:6px;" id="selic-date-label">Vigente desde 18/03/2026</div>
+        <div style="font-size:10px;margin-top:4px;display:flex;align-items:center;justify-content:space-between;" id="bcb-status-label-wrap">
+          <span id="bcb-status-label" style="color:var(--text3);">BCB: carregando...</span>
+          <button onclick="refreshBCB()" title="Atualizar taxas BCB" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px;display:flex;align-items:center;border-radius:4px;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">
+            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+        </div>
+        <input type="hidden" id="cdi-rate" value="14.65">
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <button class="icon-btn hamburger" onclick="toggleSidebar()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="page-title syne" id="page-title">Dashboard</div>
+        <!-- Breadcrumb / info contextual desktop -->
+        <div id="topbar-context" style="display:flex;align-items:center;gap:8px;"></div>
+      </div>
+      <div class="topbar-actions">
+        <!-- Ações contextuais — mostradas/ocultadas via JS conforme a página -->
+        <div class="export-btn page-action" id="btn-export" style="display:none;">
+          <button class="btn btn-ghost btn-sm" onclick="exportPDF()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar
+          </button>
+          <div class="tooltip">Exportar relatório PDF</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal()" id="btn-new-cdb">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Novo CDB
+        </button>
+        <!-- User menu -->
+        <div class="user-menu-wrap" id="user-menu-wrap">
+          <button class="user-avatar-btn" id="user-avatar-btn" onclick="toggleUserDropdown()">
+            <div class="user-avatar" id="topbar-avatar"><span id="topbar-avatar-initial">?</span></div>
+            <div class="user-avatar-info">
+              <div class="user-avatar-name" id="topbar-name">Usuário</div>
+              <div class="user-avatar-email" id="topbar-email"></div>
+            </div>
+            <svg class="user-dropdown-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="user-dropdown" id="user-dropdown">
+            <div class="user-dropdown-header">
+              <div class="user-dropdown-avatar" id="dropdown-avatar"><span id="dropdown-avatar-initial">?</span></div>
+              <div>
+                <div class="user-dropdown-name" id="dropdown-name">Usuário</div>
+              </div>
+            </div>
+            <div class="dropdown-item" onclick="openProfileModal(); closeUserDropdown();">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Meu Perfil
+            </div>
+            <div class="dropdown-item" onclick="openProfileModal('senha'); closeUserDropdown();">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              Alterar Senha
+            </div>
+            <div class="dropdown-item" onclick="toggleTheme(); closeUserDropdown();">
+              <span id="theme-icon" style="font-size:15px;width:15px;display:inline-flex;align-items:center;">☀️</span>
+              Alternar Tema
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" onclick="backupData(); closeUserDropdown();">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar Backup
+            </div>
+            <label class="dropdown-item" style="cursor:pointer;">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Importar Backup
+              <input type="file" accept=".json" onchange="restoreData(event); closeUserDropdown();" style="display:none;">
+            </label>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item danger" onclick="doLogout(); closeUserDropdown();">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Sair
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card green" onclick="goPage('investments')" style="cursor:pointer;" title="Ver meus CDBs">
+          <div class="stat-label">Total Investido</div>
+          <div class="stat-value mono" id="s-invested">R$ 0,00</div>
+          <div class="stat-sub">Capital aportado</div>
+          <div style="font-size:10px;color:var(--accent);margin-top:6px;opacity:0.7;">ver CDBs →</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">Valor Bruto</div>
+          <div class="stat-value mono" id="s-gross">R$ 0,00</div>
+          <div class="stat-sub" id="s-gross-sub">+0,00 rendimentos</div>
+        </div>
+        <div class="stat-card gold">
+          <div class="stat-label">IR + IOF</div>
+          <div class="stat-value mono" id="s-tax">R$ 0,00</div>
+          <div class="stat-sub">Impostos estimados</div>
+        </div>
+        <div class="stat-card purple" onclick="goPage('reports')" style="cursor:pointer;" title="Ver relatórios">
+          <div class="stat-label">Valor Líquido</div>
+          <div class="stat-value mono" id="s-net">R$ 0,00</div>
+          <div class="stat-sub" id="s-net-sub">Rentabilidade: 0%</div>
+          <div style="font-size:10px;color:var(--accent3);margin-top:6px;opacity:0.7;">ver relatório →</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Rentab. vs CDI</div>
+          <div class="stat-value mono" id="s-rentab-cdi">0,00%</div>
+          <div class="stat-sub" id="s-rentab-cdi-sub">do CDI líquido</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">Rendimento Diário</div>
+          <div class="stat-value mono" id="s-daily">R$ 0,00</div>
+          <div class="stat-sub" id="s-daily-sub">por dia útil hoje</div>
+        </div>
+        <div class="stat-card gold" onclick="goPage('alerts')" style="cursor:pointer;" title="Ver alertas de vencimento">
+          <div class="stat-label">Próximo Vencimento</div>
+          <div class="stat-value mono" id="s-next-venc">—</div>
+          <div class="stat-sub" id="s-next-venc-sub">dias restantes</div>
+          <div style="font-size:10px;color:var(--gold);margin-top:6px;opacity:0.7;">ver alertas →</div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:20px;">
+        <div class="card">
+          <div class="chart-title">Evolução Patrimonial</div>
+          <div class="chart-container"><canvas id="chart-evolution"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="chart-title">Distribuição por Taxa</div>
+          <div class="chart-container"><canvas id="chart-by-investment"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="chart-title">Rendimento por Mês <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:8px;">🟢 passado · 🟡 mês atual</span></div>
+        <div class="chart-container"><canvas id="chart-monthly"></canvas></div>
+      </div>
+    </div>
+
+    <!-- MY INVESTMENTS -->
+    <div class="page" id="page-investments">
+      <div id="investments-empty" class="empty-state" style="display:none;">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(0,229,176,0.1);border:1px solid rgba(0,229,176,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+          <svg width="28" height="28" fill="none" stroke="var(--accent)" stroke-width="1.5" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+        <div class="empty-title">Nenhum CDB cadastrado</div>
+        <p style="max-width:280px;margin:0 auto;">Adicione seu primeiro investimento para começar a acompanhar a rentabilidade da sua carteira.</p>
+        <button class="btn btn-primary" style="margin-top:24px;padding:12px 24px;" onclick="openModal()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Adicionar CDB
+        </button>
+      </div>
+      <div class="card" id="investments-table-wrap">
+        <div class="table-actions-bar">
+          <div class="table-search">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="inv-search" placeholder="Buscar investimento..." oninput="filterInvestments(this.value)">
+          </div>
+          <span class="table-count" id="inv-count"></span>
+        </div>
+        <div class="table-wrap">
+          <table id="investments-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>% CDI</th>
+                <th>Aplicado</th>
+                <th>Resgates</th>
+                <th>Saldo Principal</th>
+                <th>Bruto Atual</th>
+                <th>IR</th>
+                <th>Líquido</th>
+                <th>Rendimento</th>
+                <th>Aplicação</th>
+                <th>Vencimento</th>
+                <th>Liquidez</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="investments-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="page" id="page-reports">
+      <div class="grid-2" style="margin-bottom:20px;">
+        <div class="card">
+          <div class="section-title">
+            <svg width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Vencimentos por Mês
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">CDBs que vencem nos próximos 12 meses, com o valor líquido estimado no vencimento.</div>
+          <div id="venc-by-month"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">
+            <svg width="18" height="18" fill="none" stroke="var(--gold)" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Rendimento Estimado — Próximos 12 Meses
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">Projeção do rendimento bruto mês a mês para os próximos 12 meses, com base no CDI atual. Atualiza automaticamente a cada mês.</div>
+          <div id="receive-by-month"></div>
+          <div id="receive-total-box"></div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-bottom:20px;">
+        <div class="card">
+          <div class="chart-title">Rentabilidade Mensal (% ao mês)
+            <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:8px;">🟢 sua carteira · 🔵 CDI · 🟡 poupança</span>
+          </div>
+          <div class="chart-container"><canvas id="chart-monthly-pct"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="chart-title">Comparativo Anualizado
+            <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:8px;">rentabilidade líquida vs benchmarks</span>
+          </div>
+          <div id="benchmark-display" style="padding:8px 0;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Resumo Completo por Investimento</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">Projeção individual de cada CDB até o vencimento, considerando o CDI atual para o período futuro. Os valores de IR seguem a tabela regressiva conforme o prazo total da aplicação. Atualiza automaticamente a cada mês.</div>
+        <div id="summary-table-wrap">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Aplicado</th>
+                  <th>Já Rendeu</th>
+                  <th>Vai Render</th>
+                  <th>Total Bruto</th>
+                  <th>IR alíquota</th>
+                  <th>IR valor</th>
+                  <th>Total Líquido</th>
+                  <th>Rentab. Líq.</th>
+                </tr>
+              </thead>
+              <tbody id="summary-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIMULATOR -->
+    <div class="page" id="page-simulator">
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-title">Simulador de CDB</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Valor a Investir (R$)</label>
+              <input type="text" id="sim-value" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off" oninput="maskMoney(this);runSimulator()">
+            </div>
+            <div class="form-group">
+              <label>% do CDI</label>
+              <input type="number" id="sim-pct-cdi" value="100" min="0" step="1" oninput="runSimulator()">
+            </div>
+            <div class="form-group">
+              <label>CDI (% a.a.)</label>
+              <input type="number" id="sim-cdi" value="14.65" min="0" step="0.01" oninput="runSimulator()">
+            </div>
+            <div class="form-group">
+              <label>Prazo (dias)</label>
+              <input type="number" id="sim-days" value="365" min="1" oninput="runSimulator()">
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="section-title" style="font-size:14px;">Resultado da Simulação</div>
+          <div id="sim-result-box"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Comparativo de Prazos</div>
+          <div id="sim-comparison"></div>
+          <div class="divider"></div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">
+            <strong style="color:var(--text2);">IR Regressivo (tabela brasileira):</strong><br>
+            Até 180 dias: 22,5% • De 181 a 360 dias: 20%<br>
+            De 361 a 720 dias: 17,5% • Acima de 720 dias: 15%
+          </div>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="simToNewCDB()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Criar CDB com esses parâmetros
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="page" id="page-alerts">
+      <div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+            <div class="section-title" style="margin:0;">
+              <svg width="18" height="18" fill="none" stroke="var(--danger)" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Alertas de Vencimento
+            </div>
+            <div style="font-size:12px;color:var(--text3);">Investimentos com vencimento nos próximos 60 dias</div>
+          </div>
+          <div id="alert-venc-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SELIC HISTORY PAGE -->
+    <div class="page" id="page-selic">
+      <div class="grid-2" style="margin-bottom:20px;">
+        <div class="card">
+          <div class="section-title">
+            <svg width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nova Decisão COPOM
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Data da Decisão</label>
+              <input type="date" id="selic-new-date">
+            </div>
+            <div class="form-group">
+              <label>Taxa Selic (% a.a.)</label>
+              <input type="text" id="selic-new-rate" placeholder="00,00%" inputmode="decimal" autocomplete="off" oninput="maskSelicRate(this)" maxlength="8" style="letter-spacing:0.5px;">
+            </div>
+          </div>
+          <div style="margin-top:16px;display:flex;gap:10px;">
+            <button class="btn btn-primary" onclick="addSelicEntry()" style="flex:1;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Adicionar
+            </button>
+          </div>
+          <div style="margin-top:14px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius-sm);font-size:12px;color:var(--text3);line-height:1.7;">
+            <strong style="color:var(--text2);">Como funciona:</strong><br>
+            Após cada reunião do COPOM, adicione aqui a nova taxa Selic. O CDI é calculado automaticamente como Selic − 0,10%. Todos os CDBs serão recalculados com a taxa correta para cada período.
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">
+            <svg width="18" height="18" fill="none" stroke="var(--accent2)" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Taxa Atual
+          </div>
+          <div style="background:linear-gradient(135deg,rgba(0,229,176,0.08),rgba(0,136,255,0.05));border:1px solid rgba(0,229,176,0.2);border-radius:var(--radius);padding:24px;text-align:center;">
+            <div style="font-size:11px;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;">Selic Meta</div>
+            <div id="selic-current-display" style="font-family:'Syne',sans-serif;font-size:48px;font-weight:800;color:var(--accent);line-height:1;">14,75%</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:8px;">CDI: <strong id="cdi-current-display" style="color:var(--accent2);">14,65% a.a.</strong></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px;" id="selic-since-display">Vigente desde 18/03/2026</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">
+          Histórico de Decisões COPOM
+          <span id="selic-count" style="margin-left:auto;font-size:12px;color:var(--text3);font-weight:400;font-family:'Instrument Sans',sans-serif;"></span>
+        </div>
+        <div class="table-wrap">
+          <table id="selic-history-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Data da Decisão</th>
+                <th>Selic (% a.a.)</th>
+                <th>CDI (% a.a.)</th>
+                <th>Variação</th>
+                <th>Vigente por</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="selic-history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANNING PAGE -->
+    <div class="page" id="page-planning">
+
+      <!-- META DE PATRIMÔNIO -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="section-title">
+          <svg width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+          Meta de Patrimônio
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:20px;">
+          Defina uma meta de patrimônio líquido e veja quando você vai atingi-la com os rendimentos atuais.
+        </div>
+        <div class="grid-2" style="margin-bottom:24px;">
+          <div class="form-group">
+            <label>Meta de Patrimônio (R$)</label>
+            <input type="text" id="goal-value" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off"
+              oninput="maskMoney(this);renderPlanningPage()" onchange="savePlanningGoal()">
+          </div>
+          <div class="form-group">
+            <label>Nome da meta (opcional)</label>
+            <input type="text" id="goal-name" placeholder="Ex: Reserva de emergência, Aposentadoria..."
+              oninput="savePlanningGoal()">
+          </div>
+        </div>
+        <div id="goal-progress-section" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px;">
+            <div>
+              <div style="font-size:12px;color:var(--text3);">Progresso atual</div>
+              <div id="goal-pct-label" style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--accent);">0%</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:12px;color:var(--text3);">Faltam</div>
+              <div id="goal-remaining" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--text);">—</div>
+            </div>
+          </div>
+          <div class="progress" style="height:12px;margin-bottom:20px;">
+            <div class="progress-fill" id="goal-progress-bar" style="width:0%;height:100%;"></div>
+          </div>
+          <div class="grid-2" style="gap:12px;margin-bottom:16px;">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;">
+              <div style="font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Patrimônio Atual</div>
+              <div id="goal-current" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:600;color:var(--accent);">—</div>
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;">
+              <div style="font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Data Estimada</div>
+              <div id="goal-date" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text);">—</div>
+              <div id="goal-days-left" style="font-size:11px;color:var(--text3);margin-top:2px;"></div>
+            </div>
+          </div>
+          <div id="goal-message" style="font-size:13px;color:var(--text2);padding:12px 14px;background:var(--surface2);border-radius:var(--radius-sm);"></div>
+        </div>
+        <div id="goal-empty" style="text-align:center;padding:20px;color:var(--text3);font-size:13px;">
+          Informe uma meta acima para ver o progresso.
+        </div>
+      </div>
+
+      <!-- PROJEÇÃO DE REINVESTIMENTO -->
+      <div class="card">
+        <div class="section-title">
+          <svg width="18" height="18" fill="none" stroke="var(--accent2)" stroke-width="2" viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+          Projeção de Reinvestimento
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:20px;">
+          Simula o que acontece se você reinvestir todos os vencimentos nas mesmas condições atuais da carteira.
+        </div>
+        <div class="grid-2" style="margin-bottom:20px;gap:12px;">
+          <div class="form-group">
+            <label>Horizonte de projeção</label>
+            <select id="proj-years" onchange="renderPlanningPage()">
+              <option value="3">3 anos</option>
+              <option value="5" selected>5 anos</option>
+              <option value="10">10 anos</option>
+              <option value="20">20 anos</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Aporte mensal adicional (R$)</label>
+            <input type="text" id="proj-aporte" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off"
+              oninput="maskMoney(this);renderPlanningPage()">
+          </div>
+        </div>
+        <div id="proj-result"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- FAB — mobile only -->
+<button class="fab" id="fab-new-cdb" onclick="openModal()" title="Novo CDB" aria-label="Novo CDB">
+  <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav-bar" id="mobile-nav-bar">
+  <div class="mobile-nav-item active" id="mnav-dashboard" onclick="goPage('dashboard')">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Início
+  </div>
+  <div class="mobile-nav-item" id="mnav-investments" onclick="goPage('investments')">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+    CDBs
+  </div>
+  <div class="mobile-nav-item" id="mnav-reports" onclick="goPage('reports')">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Relatórios
+  </div>
+  <div class="mobile-nav-item" id="mnav-alerts" onclick="goPage('alerts')">
+    <span class="mobile-badge" id="mnav-alert-badge"></span>
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+    Alertas
+  </div>
+  <div class="mobile-nav-item" id="mnav-more" onclick="toggleSidebar()">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    Mais
+  </div>
+</nav>
+
+<!-- RESGATE MODAL -->
+<!-- PROFILE MODAL -->
+<div class="modal-overlay" id="profile-modal" onclick="closeProfileModalOutside(event)">
+  <div class="modal" style="max-width:480px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div class="modal-title" style="margin:0;">Meu Perfil</div>
+      <button class="icon-btn" onclick="closeProfileModal()" style="width:32px;height:32px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Avatar -->
+    <div class="profile-avatar-wrap">
+      <div class="profile-avatar-big" id="profile-avatar-big" onclick="document.getElementById('profile-photo-input').click()">
+        <span id="profile-avatar-initial">?</span>
+        <div class="profile-avatar-overlay">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Trocar foto
+        </div>
+      </div>
+      <input type="file" id="profile-photo-input" accept="image/*" style="display:none;" onchange="handleProfilePhoto(event)">
+      <div style="text-align:center;">
+        <div style="font-size:13px;color:var(--text3);">Clique no avatar para trocar a foto</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px;">JPG, PNG ou GIF • máx. 2MB</div>
+      </div>
+    </div>
+
+    <!-- Dados pessoais -->
+    <div class="profile-section-title">Dados da Conta</div>
+    <div class="form-grid" style="margin-bottom:24px;">
+      <div class="form-group">
+        <label>Nome de exibição</label>
+        <input type="text" id="profile-name-input" placeholder="Seu nome">
+      </div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="profile-email-input" disabled style="opacity:0.6;cursor:not-allowed;" title="O e-mail não pode ser alterado">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveProfileInfo()" style="width:100%;justify-content:center;padding:12px;" id="profile-save-btn">Salvar alterações</button>
+    <div class="profile-msg" id="profile-info-msg"></div>
+
+    <!-- Separador -->
+    <div style="height:1px;background:var(--border);margin:28px 0;"></div>
+
+    <!-- Alterar senha -->
+    <div class="profile-section-title" id="profile-senha-anchor">Alterar Senha</div>
+    <div class="form-grid" style="margin-bottom:16px;">
+      <div class="form-group full">
+        <label>Nova senha</label>
+        <input type="password" id="profile-new-pass" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="form-group full">
+        <label>Confirmar nova senha</label>
+        <input type="password" id="profile-confirm-pass" placeholder="Repita a nova senha">
+      </div>
+    </div>
+    <button class="btn btn-ghost" onclick="saveProfilePassword()" style="width:100%;justify-content:center;padding:12px;" id="profile-pass-btn">Atualizar senha</button>
+    <div class="profile-msg" id="profile-pass-msg"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="resgate-modal" onclick="closeResgateModalOutside(event)">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-title">Registrar Resgate</div>
+    <div id="resgate-inv-info" style="background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:20px;font-size:13px;color:var(--text2);"></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Data do Resgate</label>
+        <input type="date" id="r-date">
+      </div>
+      <div class="form-group">
+        <label>Valor Líquido Recebido (R$)</label>
+        <input type="text" id="r-valor" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off" oninput="maskMoney(this)">
+      </div>
+    </div>
+    <div style="background:rgba(255,165,2,0.07);border:1px solid rgba(255,165,2,0.25);border-radius:var(--radius-sm);padding:12px 14px;margin-top:4px;font-size:12px;color:var(--text2);line-height:1.7;">
+      <strong style="color:var(--warning);">Como funciona:</strong><br>
+      Informe o valor líquido que você recebeu no resgate (já descontado IR e IOF pelo banco). O app calcula automaticamente o valor bruto sacado e atualiza o saldo principal do CDB.
+    </div>
+    <div id="resgate-preview" style="margin-top:14px;"></div>
+    <div id="resgate-history" style="margin-top:16px;"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeResgateModal()">Fechar</button>
+      <button class="btn btn-primary" style="background:var(--warning);color:#000;" onclick="saveResgate()">Registrar Resgate</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD INVESTMENT MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Novo Investimento CDB</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Nome do Investimento</label>
+        <input type="text" id="f-name" placeholder="Ex: CDB Banco XYZ 2025">
+      </div>
+      <div class="form-group">
+        <label>Valor Aplicado (R$)</label>
+        <input type="text" id="f-value" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off" oninput="maskMoney(this)">
+      </div>
+      <div class="form-group">
+        <label>% do CDI</label>
+        <input type="text" id="f-pct-cdi" placeholder="100%" inputmode="numeric" autocomplete="off"
+          oninput="maskPctCdi(this)" value="100%">
+      </div>
+      <div class="form-group">
+        <label>Data da Aplicação</label>
+        <input type="date" id="f-start">
+      </div>
+      <div class="form-group">
+        <label>Data de Vencimento</label>
+        <input type="date" id="f-end">
+      </div>
+      <div class="form-group">
+        <label>Liquidez</label>
+        <select id="f-liquidity">
+          <option value="diaria">Diária</option>
+          <option value="vencimento">No Vencimento</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="f-type">
+          <option value="CDB">CDB</option>
+          <option value="LCI">LCI (isento IR)</option>
+          <option value="LCA">LCA (isento IR)</option>
+        </select>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:14px;font-size:13px;color:var(--text2);">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <strong style="color:var(--text);">IR e IOF calculados automaticamente.</strong><br>
+          O IR segue a tabela regressiva conforme o prazo da aplicação.<br>
+          O IOF é aplicado sobre resgates realizados antes de 30 dias.
+        </div>
+        <button type="button" onclick="toggleTabelaIR()" style="background:none;border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--accent);font-size:11px;font-weight:600;padding:5px 10px;cursor:pointer;white-space:nowrap;font-family:'Instrument Sans',sans-serif;flex-shrink:0;">
+          Ver tabela de imposto
+        </button>
+      </div>
+      <div id="tabela-ir-box" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">Imposto de Renda — Tabela Regressiva</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px;">
+          <div style="padding:6px 8px;background:var(--surface3);border-radius:4px;">Até 180 dias</div><div style="padding:6px 8px;background:var(--surface3);border-radius:4px;color:var(--danger);font-weight:600;">22,5%</div>
+          <div style="padding:6px 8px;background:var(--surface3);border-radius:4px;">181 a 360 dias</div><div style="padding:6px 8px;background:var(--surface3);border-radius:4px;color:var(--warning);font-weight:600;">20,0%</div>
+          <div style="padding:6px 8px;background:var(--surface3);border-radius:4px;">361 a 720 dias</div><div style="padding:6px 8px;background:var(--surface3);border-radius:4px;color:var(--gold);font-weight:600;">17,5%</div>
+          <div style="padding:6px 8px;background:var(--surface3);border-radius:4px;">Acima de 720 dias</div><div style="padding:6px 8px;background:var(--surface3);border-radius:4px;color:var(--accent);font-weight:600;">15,0%</div>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin:12px 0 8px;">IOF — Resgates antes de 30 dias</div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.6;">
+          O IOF é cobrado de forma regressiva: 96% no 1º dia, reduzindo progressivamente até 0% a partir do 30º dia.
+          Incide apenas sobre o rendimento, não sobre o principal investido. LCI e LCA são isentos de IR e IOF.
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveInvestment()">Salvar Investimento</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
+const DB_URL = 'https://nhxgphqybemziwwztwmc.supabase.co';
+const DB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM';
+
+
+
+
+
+
+
+
+// ─── BCB API — Taxa CDI diária real ──────────────────────────────────────────
+// Série 12 = CDI diário (% ao dia), publicado pela B3/CETIP via BCB
+// Elimina a aproximação Selic-0.10% com a taxa real de cada dia
+
+const BCB_CDI_SERIE = 11; // Selic/CDI Over diária (% ao dia) — series 11 e 12 são idênticas
+let _cdiDailyCache = {}; // { 'YYYY-MM-DD': taxaDiaria (decimal) }
+let _cdiCacheLoaded = false;
+
+async function loadCDIFromBCB() {
+  // Check if we have fresh cache
+  const cacheKey = 'cdb_cdi_cache';
+  const cacheDate = localStorage.getItem('cdb_cdi_cache_date');
+  const todayStr  = new Date().toISOString().slice(0, 10);
+
+  const cacheVersion = localStorage.getItem('cdb_cdi_cache_version');
+  if (cacheDate === todayStr && cacheVersion === 'v3') {
+    // Cache is from today and correct version - load it
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+      if (Object.keys(cached).length > 0) {
+        _cdiDailyCache = cached;
+        _cdiCacheLoaded = true;
+        _cdiCumLogBuilt = false;
+        buildCumulativeCDI();
+        console.log('CDI cache loaded:', Object.keys(cached).length, 'dias');
+        const lbl = document.getElementById('bcb-status-label');
+        if (lbl) { lbl.textContent = '✓ BCB: ' + Object.keys(cached).length + ' dias reais'; lbl.style.color = 'var(--accent)'; }
+        return true;
+      }
+    } catch(e) {}
+  }
+
+  // Need to fetch from BCB
+  // Get date range: from earliest investment or 2020-01-01, to today
+  const earliest = investments.length > 0
+    ? investments.reduce((m, i) => i.start < m ? i.start : m, investments[0].start)
+    : '2020-01-01';
+
+  const startBCB = earliest.split('-').reverse().join('/'); // DD/MM/YYYY
+  const endBCB   = todayStr.split('-').reverse().join('/');
+
+  try {
+    showSyncStatus('sync');
+
+    // Split into 5-year blocks to handle any date range (BCB limit = 10 years per request)
+    function dateAddYears(dateStr, years) {
+      const [dd, mm, yyyy] = dateStr.split('/');
+      return dd + '/' + mm + '/' + (parseInt(yyyy) + years);
+    }
+    function compareDMY(a, b) {
+      const toISO = s => { const [d,m,y] = s.split('/'); return y+m+d; };
+      return toISO(a).localeCompare(toISO(b));
+    }
+
+    const cache = {};
+    let blockStart = startBCB;
+    while (compareDMY(blockStart, endBCB) <= 0) {
+      const blockEnd5 = dateAddYears(blockStart, 5);
+      const blockEnd  = compareDMY(blockEnd5, endBCB) < 0 ? blockEnd5 : endBCB;
+      const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${BCB_CDI_SERIE}/dados?formato=json&dataInicial=${blockStart}&dataFinal=${blockEnd}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('BCB HTTP ' + res.status + ' (bloco ' + blockStart + ' a ' + blockEnd + ')');
+      const data = await res.json();
+      // Serie 11: valor = % ao dia (ex: 0.054266% = 0.00054266 decimal)
+      for (const item of data) {
+        const [dd, mm, yyyy] = item.data.split('/');
+        const isoDate = `${yyyy}-${mm}-${dd}`;
+        cache[isoDate] = parseFloat(item.valor) / 100;
+      }
+      // Advance to next block (day after blockEnd)
+      // Simply move 5 years from original blockStart
+      if (compareDMY(blockEnd5, endBCB) >= 0) break; // blockEnd was endBCB, done
+      blockStart = dateAddYears(blockStart, 5);
+    }
+    _cdiDailyCache = cache;
+    _cdiCacheLoaded = true;
+    localStorage.setItem(cacheKey, JSON.stringify(cache));
+    localStorage.setItem('cdb_cdi_cache_date', todayStr);
+    localStorage.setItem('cdb_cdi_cache_version', 'v3');
+    console.log('CDI BCB carregado:', Object.keys(cache).length, 'dias úteis');
+    const lbl2 = document.getElementById('bcb-status-label');
+    if (lbl2) { lbl2.textContent = '✓ BCB: ' + Object.keys(cache).length + ' dias reais'; lbl2.style.color = 'var(--accent)'; }
+    return true;
+  } catch(e) {
+    console.warn('BCB CDI fetch failed, using Selic approximation:', e.message);
+    const lbl3 = document.getElementById('bcb-status-label');
+    if (lbl3) { lbl3.textContent = '⚠ Selic approx (BCB offline)'; lbl3.style.color = 'var(--warning)'; }
+    return false;
+  }
+}
+
+function getCDIForDate(dateStr) {
+  // Returns daily CDI rate as decimal (e.g. 0.00052284)
+  // Serie 4391 = CDI/CETIP Over % ao dia
+  if (_cdiCacheLoaded && _cdiDailyCache[dateStr] !== undefined) {
+    return _cdiDailyCache[dateStr]; // real daily rate from BCB
+  }
+  // Fallback: Selic-based approximation (Selic - 0.10% annual → daily)
+  const selicAnual = getSelicForDate(dateStr);
+  const cdiAnual   = selicToCdi(selicAnual) / 100; // decimal annual
+  return Math.pow(1 + cdiAnual, 1/252) - 1; // daily approximation
+}
+
+function isBusinessDayBCB(dateStr) {
+  // If BCB cache loaded: a day is business day IFF it has a CDI rate
+  // This is more accurate than our algorithmic holiday calculator
+  if (_cdiCacheLoaded && Object.keys(_cdiDailyCache).length > 0) {
+    // Only use BCB calendar for dates within cache range
+    const keys = Object.keys(_cdiDailyCache).sort();
+    const minDate = keys[0];
+    const maxDate = keys[keys.length - 1];
+    if (dateStr >= minDate && dateStr <= maxDate) {
+      return _cdiDailyCache[dateStr] !== undefined;
+    }
+  }
+  // Fallback to algorithmic calculator
+  return isBusinessDay(dateStr);
+}
+
+
+
+
+
+
+async function loadFromDb() {
+  const res = await fetch(DB_URL + '/rest/v1/investments?select=*&user_id=eq.default&order=start_date', {
+    headers: { 'apikey': DB_KEY, 'Authorization': 'Bearer ' + DB_KEY }
+  });
+  if (!res.ok) {
+    console.warn('DB read error:', res.status, await res.text());
+    return false;
+  }
+  const data = await res.json();
+  if (Array.isArray(data) && data.length > 0) {
+    investments = data.map(r => ({
+      id: r.id,
+      name: r.name,
+      value: parseFloat(r.value),
+      pctCdi: parseFloat(r.pct_cdi),
+      start: r.start_date,
+      end: r.end_date,
+      liquidity: r.liquidity,
+      type: r.type,
+      resgates: r.resgates ? (typeof r.resgates === 'string' ? JSON.parse(r.resgates) : r.resgates) : []
+    }));
+    localStorage.setItem('cdb_investments', JSON.stringify(investments));
+    return true;
+  }
+  return false;
+}
+
+
+
+async function loadSelicFromDb() {
+  const data = await dbFetch('selic_custom', 'select=*&user_id=eq.default&order=date');
+  if (Array.isArray(data) && data.length > 0) {
+    window._selicCustom = data.map(r => ({ date: r.date, selic: parseFloat(r.selic) }));
+    localStorage.setItem('cdb_selic_custom', JSON.stringify(window._selicCustom));
+  syncSelicToDb();(e => console.warn('Selic sync error:', e));
+    return true;
+  }
+  return false;
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let investments = [];
+let _currentUser = null;
+let editingId = null;
+let chartEvolution, chartByInv, chartMonthly, chartMonthlyPct;
+const DARK = 'dark', LIGHT = 'light';
+let theme = localStorage.getItem('cdb_theme') || DARK;
+
+// ─── SELIC HISTORY (COPOM decisions) ─────────────────────────────────────────
+// Each entry: { date: 'YYYY-MM-DD', selic: % a.a. }
+const SELIC_HISTORY = [
+  {date:'2020-02-05', selic:4.25}, {date:'2020-03-18', selic:3.75},
+  {date:'2020-05-06', selic:3.00}, {date:'2020-06-17', selic:2.25},
+  {date:'2020-08-05', selic:2.00}, {date:'2020-09-16', selic:2.00},
+  {date:'2020-10-28', selic:2.00}, {date:'2020-12-09', selic:2.00},
+  {date:'2021-01-20', selic:2.00}, {date:'2021-03-17', selic:2.75},
+  {date:'2021-05-05', selic:3.50}, {date:'2021-06-16', selic:4.25},
+  {date:'2021-08-04', selic:5.25}, {date:'2021-09-22', selic:6.25},
+  {date:'2021-10-27', selic:7.75}, {date:'2021-12-08', selic:9.25},
+  {date:'2022-02-02', selic:10.75},{date:'2022-03-16', selic:11.75},
+  {date:'2022-05-04', selic:12.75},{date:'2022-06-15', selic:13.25},
+  {date:'2022-08-03', selic:13.75},{date:'2022-09-21', selic:13.75},
+  {date:'2022-10-26', selic:13.75},{date:'2022-12-07', selic:13.75},
+  {date:'2023-02-01', selic:13.75},{date:'2023-03-22', selic:13.75},
+  {date:'2023-05-03', selic:13.75},{date:'2023-06-21', selic:13.75},
+  {date:'2023-08-02', selic:13.25},{date:'2023-09-20', selic:12.75},
+  {date:'2023-11-01', selic:12.25},{date:'2023-12-13', selic:11.75},
+  {date:'2024-01-31', selic:11.25},{date:'2024-03-20', selic:10.75},
+  {date:'2024-05-08', selic:10.50},{date:'2024-06-19', selic:10.50},
+  {date:'2024-07-31', selic:10.50},{date:'2024-09-18', selic:10.75},
+  {date:'2024-11-06', selic:11.25},{date:'2024-12-11', selic:11.75},
+  {date:'2025-01-29', selic:12.25},{date:'2025-03-19', selic:12.75},
+  {date:'2025-05-07', selic:13.25},{date:'2025-06-18', selic:13.75},
+  {date:'2025-07-30', selic:14.25},{date:'2025-09-17', selic:14.75},
+  {date:'2025-11-05', selic:14.75},{date:'2025-12-10', selic:14.75},
+  {date:'2026-01-28', selic:15.00},{date:'2026-03-18', selic:14.75},
+];
+
+// Returns Selic rate in effect for a given date (YYYY-MM-DD)
+function getSelicForDate(dateStr) {
+  const history = getFullSelicHistory();
+  let rate = history[0].selic;
+  for (const entry of history) {
+    if (entry.date <= dateStr) rate = entry.selic;
+    else break;
+  }
+  return rate;
+}
+
+// CDI = Selic - 0.10% (convention)
+function selicToCdi(selic) { return Math.max(0, selic - 0.10); }
+
+// Current Selic from sidebar input
+function getCurrentSelic() {
+  const history = getFullSelicHistory();
+  return history[history.length - 1].selic;
+}
+
+function onSelicChange() { /* selic is now readonly - driven by history only */ }
+
+function updateSelicDisplay() {
+  // Load custom history from localStorage (additions by user)
+  const custom = JSON.parse(localStorage.getItem('cdb_selic_custom') || '[]');
+  const all = [...SELIC_HISTORY, ...custom].sort((a, b) => a.date.localeCompare(b.date));
+  const lastEntry = all[all.length - 1];
+  const selic = lastEntry.selic;
+  const cdi = selicToCdi(selic);
+  // Update sidebar display (now a span, not input)
+  const selicSpan = document.getElementById('selic-rate');
+  if (selicSpan) selicSpan.textContent = selic.toFixed(2).replace('.', ',');
+  document.getElementById('cdi-display').textContent = cdi.toFixed(2).replace('.', ',');
+  document.getElementById('cdi-rate').value = cdi.toFixed(2);
+  const d = new Date(lastEntry.date + 'T12:00:00');
+  const label = d.toLocaleDateString('pt-BR');
+  document.getElementById('selic-date-label').textContent = 'Vigente desde ' + label;
+  document.getElementById('selic-source').textContent = 'HISTÓRICO';
+}
+
+function initSelicFromHistory() {
+  updateSelicDisplay();
+}
+
+function getFullSelicHistory() {
+  const custom = JSON.parse(localStorage.getItem('cdb_selic_custom') || '[]');
+  return [...SELIC_HISTORY, ...custom].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  applyTheme();
+  showLogin();
+  setTimeout(initAppAsync, 0);
+  window.addEventListener('resize', () => {
+    if (chartEvolution) chartEvolution.resize();
+    if (chartByInv) chartByInv.resize();
+    if (chartMonthly) chartMonthly.resize();
+    if (chartMonthlyPct) chartMonthlyPct.resize();
+  });
+});
+
+async function initAppAsync() {
+  if (localStorage.getItem('cdb_cdi_cache_version') !== 'v3') {
+    localStorage.removeItem('cdb_cdi_cache');
+    localStorage.removeItem('cdb_cdi_cache_date');
+    localStorage.removeItem('cdb_cdi_cache_version');
+  }
+  // Check stored session token
+  const stored = localStorage.getItem('cdb_auth_token');
+  if (stored) {
+    try {
+      const sess = JSON.parse(stored);
+      if (sess.expires_at && sess.expires_at > Date.now()) {
+        _currentUser = { id: sess.user_id, email: sess.email, access_token: sess.access_token };
+        await onLoginSuccess();
+        return;
+      }
+    } catch(e) { localStorage.removeItem('cdb_auth_token'); }
+  }
+  // No valid session - show login
+}
+
+// ─── THEME ────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  theme = theme === DARK ? LIGHT : DARK;
+  localStorage.setItem('cdb_theme', theme);
+  applyTheme();
+  updateChartColors();
+}
+function applyTheme() {
+  if (theme === LIGHT) {
+    document.body.classList.add('light');
+    document.getElementById('theme-icon').textContent = '🌙';
+  } else {
+    document.body.classList.remove('light');
+    document.getElementById('theme-icon').textContent = '☀️';
+  }
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+const pageTitles = {
+  dashboard: 'Dashboard', investments: 'Meus CDBs',
+  reports: 'Relatórios', simulator: 'Simulador',
+  alerts: 'Alertas', selic: 'Histórico Selic', planning: 'Metas e Projeções'
+};
+function goPage(id, silent) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + id);
+  if (pageEl) pageEl.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes(id)) n.classList.add('active');
+  });
+  document.getElementById('page-title').textContent = pageTitles[id] || '';
+
+  // ── Ações contextuais da topbar ──────────────────────────────────────────
+  const btnExport = document.getElementById('btn-export');
+  const btnNewCdb = document.getElementById('btn-new-cdb');
+  const fabNewCdb = document.getElementById('fab-new-cdb');
+  // Exportar: só em relatórios
+  if (btnExport) btnExport.style.display = (id === 'reports') ? '' : 'none';
+  // Novo CDB: só em investimentos
+  const showNewCdb = (id === 'investments');
+  if (btnNewCdb) btnNewCdb.style.display = showNewCdb ? '' : 'none';
+  if (fabNewCdb) fabNewCdb.style.display = showNewCdb ? '' : 'none';
+
+  // ── Mobile bottom nav: marcar item ativo ────────────────────────────────
+  const mnavIds = ['dashboard','investments','reports','alerts'];
+  mnavIds.forEach(pid => {
+    const el = document.getElementById('mnav-' + pid);
+    if (el) el.classList.toggle('active', pid === id);
+  });
+  const mMore = document.getElementById('mnav-more');
+  if (mMore) mMore.classList.remove('active');
+
+  // ── Contexto na topbar ──────────────────────────────────────────────────
+  updateTopbarContext(id);
+
+  if (silent) return; // chamada interna — não renderizar nem scrollar
+
+  // ── Render da página ────────────────────────────────────────────────────
+  if (id === 'dashboard') { _forceChartUpdate = true; setTimeout(updateCharts, 100); }
+  if (id === 'simulator') runSimulator();
+  if (id === 'alerts') renderAlerts();
+  if (id === 'reports') renderReports();
+  if (id === 'selic') renderSelicPage();
+  if (id === 'planning') renderPlanningPage();
+  closeSidebar();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function toggleSidebar() {
+  const open = document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('open', open);
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
+}
+
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+function openModal(id = null) {
+  editingId = id;
+  document.getElementById('modal-title').textContent = id ? 'Editar Investimento' : 'Novo Investimento CDB';
+  if (id) {
+    const inv = investments.find(i => i.id === id);
+    document.getElementById('f-name').value = inv.name;
+    setMoneyValue(document.getElementById('f-value'), inv.value);
+    const pctEl = document.getElementById('f-pct-cdi'); pctEl.value = inv.pctCdi.toLocaleString('pt-BR') + '%';
+    document.getElementById('f-start').value = inv.start;
+    document.getElementById('f-end').value = inv.end;
+    document.getElementById('f-liquidity').value = inv.liquidity;
+    document.getElementById('f-type').value = inv.type;
+  } else {
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-value').value = '';
+    document.getElementById('f-pct-cdi').value = '100%';
+    document.getElementById('f-start').value = new Date().toISOString().split('T')[0];
+    document.getElementById('f-end').value = '';
+    document.getElementById('f-liquidity').value = 'diaria';
+    document.getElementById('f-type').value = 'CDB';
+  }
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  editingId = null;
+  const box = document.getElementById('tabela-ir-box');
+  if (box) box.style.display = 'none';
+}
+function closeModalOutside(e) { if (e.target.id === 'modal') closeModal(); }
+
+
+
+
+
+
+
+// ─── CALCULATIONS ─────────────────────────────────────────────────────────────
+function getCDI() { return parseFloat(document.getElementById('cdi-rate').value) || 14.65; }
+
+// ─── CALENDÁRIO CDI — Gerador algorítmico de feriados ────────────────────────
+// Calcula os feriados nacionais que afetam o CDI para QUALQUER ano,
+// sem necessidade de listas hardcoded. Funciona indefinidamente.
+// Baseado nas regras do calendário ANBIMA/B3, validado contra o Banco BMG.
+//
+// FERIADOS INCLUÍDOS (afetam CDI):
+//   Fixos: Tiradentes(21/04), Trabalho(01/05), Independência(07/09),
+//          N.Sra.Aparecida(12/10), Finados(02/11), República(15/11), Natal(25/12)
+//   Móveis: Sexta-feira Santa (Páscoa−2), Corpus Christi (Páscoa+60)
+//
+// FERIADOS EXCLUÍDOS (não afetam CDI per validação bancária):
+//   Ano Novo (01/01), Consciência Negra (20/11), Carnaval (não é federal)
+
+function calcEaster(year) {
+  const a = year % 19, b = Math.floor(year/100), c = year % 100;
+  const d = Math.floor(b/4), e = b % 4, f = Math.floor((b+8)/25);
+  const g = Math.floor((b-f+1)/3), h = (19*a+b-d-g+15) % 30;
+  const i = Math.floor(c/4), k = c % 4, l = (32+2*e+2*i-h-k) % 7;
+  const m = Math.floor((a+11*h+22*l)/451);
+  const month = Math.floor((h+l-7*m+114)/31);
+  const day   = ((h+l-7*m+114) % 31) + 1;
+  return new Date(year, month-1, day);
+}
+
+const _holidayCache = {};
+function getCDIHolidaysForYear(year) {
+  if (_holidayCache[year]) return _holidayCache[year];
+  const holidays = new Set();
+  const easter = calcEaster(year);
+  const addDate = (y, m, d) => {
+    const dt = new Date(y, m-1, d);
+    if (dt.getDay() !== 0 && dt.getDay() !== 6) // only if weekday
+      holidays.add(dt.toISOString().slice(0,10));
+  };
+  // Fixed federal holidays (CDI-relevant)
+  addDate(year, 4,  21); // Tiradentes
+  addDate(year, 5,  1);  // Dia do Trabalho
+  addDate(year, 9,  7);  // Independência
+  addDate(year, 10, 12); // N.Sra. Aparecida
+  addDate(year, 11, 2);  // Finados
+  addDate(year, 11, 15); // Proclamação da República
+  addDate(year, 12, 25); // Natal
+  // Moveable: Good Friday (Easter - 2 days)
+  const goodFriday = new Date(easter); goodFriday.setDate(easter.getDate() - 2);
+  if (goodFriday.getDay() !== 0 && goodFriday.getDay() !== 6)
+    holidays.add(goodFriday.toISOString().slice(0,10));
+  // Moveable: Corpus Christi (Easter + 60 days)
+  const corpus = new Date(easter); corpus.setDate(easter.getDate() + 60);
+  if (corpus.getDay() !== 0 && corpus.getDay() !== 6)
+    holidays.add(corpus.toISOString().slice(0,10));
+  _holidayCache[year] = holidays;
+  return holidays;
+}
+
+function isBusinessDay(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dow = d.getDay();
+  if (dow === 0 || dow === 6) return false; // weekend
+  const year = parseInt(dateStr.slice(0, 4));
+  return !getCDIHolidaysForYear(year).has(dateStr);
+}
+
+// ─── Compatibilidade: NATIONAL_HOLIDAYS não é mais usado
+// (mantido vazio para não quebrar referências)
+const NATIONAL_HOLIDAYS = new Set();
+
+// Compound a principal using ONLY business days// Compound a principal using ONLY business days (CDI standard — base 252).
+// Past periods use historical Selic; future uses current CDI from sidebar.
+// Pre-computed cumulative CDI log-factors for fast calcGross
+// Structure: _cdiCumLog[date] = sum of log(1 + rate_i) from epoch to date
+let _cdiCumLog = null;
+let _cdiCumLogBuilt = false;
+
+function buildCumulativeCDI() {
+  if (_cdiCumLogBuilt || !_cdiCacheLoaded) return;
+  const keys = Object.keys(_cdiDailyCache).sort();
+  if (keys.length === 0) return;
+  _cdiCumLog = {};
+  let cumLog = 0;
+  for (const dateStr of keys) {
+    const rate = _cdiDailyCache[dateStr]; // decimal per day
+    cumLog += Math.log(1 + rate);
+    _cdiCumLog[dateStr] = cumLog;
+  }
+  _cdiCumLogBuilt = true;
+}
+
+function getCumLogBCB(dateStr) {
+  // Returns cumulative log-factor up to and including dateStr
+  if (!_cdiCumLog) return null;
+  // Find the latest date <= dateStr
+  if (_cdiCumLog[dateStr] !== undefined) return _cdiCumLog[dateStr];
+  // Binary search for nearest date
+  const keys = Object.keys(_cdiCumLog);
+  // Find last key <= dateStr
+  let lo = 0, hi = keys.length - 1, res = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (keys[mid] <= dateStr) { res = mid; lo = mid + 1; }
+    else hi = mid - 1;
+  }
+  return res >= 0 ? _cdiCumLog[keys[res]] : 0;
+}
+
+function calcGross(principal, pctCdi, startDateStr, calcToDateStr) {
+  if (calcToDateStr <= startDateStr) return principal;
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  // Fast path: use pre-computed cumulative log-factors for past dates
+  if (_cdiCumLogBuilt && startDateStr < todayStr) {
+    const effectiveTo = calcToDateStr < todayStr ? calcToDateStr : todayStr;
+    // Get cumulative log from start (exclusive) to effectiveTo (inclusive)
+    // We need log-factor for business days in (startDateStr, effectiveTo]
+    // cum[to] - cum[start] gives log-product for (start, to]
+    // But start might not be a business day — we need cum up to day BEFORE start
+    const logTo    = getCumLogBCB(effectiveTo) || 0;
+    const logStart = getCumLogBCB(startDateStr) || 0;
+    // If startDateStr is itself a business day, subtract it (we want AFTER start)
+    const startRate = _cdiDailyCache[startDateStr];
+    const logStartAdj = startRate !== undefined ? logStart - Math.log(1 + startRate) : logStart;
+    const pastFactor = Math.exp((logTo - logStartAdj) * (pctCdi / 100));
+    let value = principal * pastFactor;
+
+    // Future portion: use formula (no loop)
+    if (calcToDateStr > todayStr) {
+      const futStart  = new Date(todayStr + 'T12:00:00');
+      const futEnd    = new Date(calcToDateStr + 'T12:00:00');
+      const calDays   = Math.max(0, (futEnd - futStart) / 86400000);
+      const busDays   = Math.round(calDays * 252 / 365);
+      const futDaily  = Math.pow(1 + getCDI() / 100, 1/252) - 1;
+      const futRate   = futDaily * (pctCdi / 100);
+      value *= Math.pow(1 + futRate, busDays);
+    }
+    return value;
+  }
+
+  // Fallback: formula-based (no loop) when BCB not loaded yet
+  // Uses business days count approximation: calendar days × 252/365
+  const currentCdi = getCDI() / 100;
+  const startD  = new Date(startDateStr + 'T12:00:00');
+  const endD    = new Date(calcToDateStr + 'T12:00:00');
+  const todayD  = new Date(todayStr + 'T12:00:00');
+  // Past portion: use Selic history per period (annual formula)
+  let value = principal;
+  // Simple approximation: split at today boundary
+  if (startD < todayD) {
+    const pastEnd  = endD < todayD ? endD : todayD;
+    const calDays  = Math.max(0, (pastEnd - startD) / 86400000);
+    const busDays  = Math.round(calDays * 252 / 365);
+    // Use weighted Selic rate for the period
+    const midDate  = new Date((startD.getTime() + pastEnd.getTime()) / 2).toISOString().slice(0,10);
+    const selicMid = getSelicForDate(midDate);
+    const cdiMid   = selicToCdi(selicMid) / 100;
+    const daily    = Math.pow(1 + cdiMid, 1/252) - 1;
+    value *= Math.pow(1 + daily * pctCdi / 100, busDays);
+  }
+  // Future portion: current CDI
+  if (endD > todayD) {
+    const futStart = startD > todayD ? startD : todayD;
+    const calDays  = Math.max(0, (endD - futStart) / 86400000);
+    const busDays  = Math.round(calDays * 252 / 365);
+    const daily    = Math.pow(1 + currentCdi, 1/252) - 1;
+    value *= Math.pow(1 + daily * pctCdi / 100, busDays);
+  }
+  return value;
+}
+
+function calcCDB(inv, toDate = null) {
+  const resgates = (inv.resgates || []).slice().sort((a,b) => a.date.localeCompare(b.date));
+  const endDate  = new Date(inv.end);
+  const today    = toDate ? new Date(toDate) : new Date();
+  const calcTo   = today < endDate ? today : endDate;
+  const calcToStr = calcTo.toISOString().slice(0,10);
+  const daysTotal  = Math.max(0, Math.round((endDate - new Date(inv.start)) / 86400000));
+  const daysPassed = Math.max(0, Math.round((calcTo  - new Date(inv.start)) / 86400000));
+
+  // Calculate current principal: original value minus gross equivalents of resgates
+  // Each resgate reduces the principal from its date forward
+  // We model this as: for each resgate, we subtract the bruto sacado from principal
+  let principalAtual = inv.value;
+  let totalResgatesLiquido = 0;
+  let totalResgatesBruto = 0;
+
+  for (const r of resgates) {
+    if (r.date > calcToStr) break; // future resgate
+    // Gross value at resgate date before the withdrawal
+    const grossAtResgate = calcGross(principalAtual, inv.pctCdi, inv.start, r.date);
+    const yieldAtResgate = grossAtResgate - principalAtual;
+    const daysAtResgate  = Math.max(0, Math.round((new Date(r.date) - new Date(inv.start)) / 86400000));
+    const irAtResgate    = getIRRate(inv.type, daysAtResgate);
+    const iofAtResgate   = getIOFRate(daysAtResgate);
+    // Back-calculate gross from net: net = gross - iof - ir*(gross-iof)
+    // net = gross*(1 - ir) + iof*(ir - 1) => gross = (net + iof*(1-ir)) / (1-ir)
+    // Simpler: gross ≈ net / (1 - irAtResgate) for no IOF; with IOF iterate once
+    const irR = inv.type === 'CDB' ? irAtResgate : 0;
+    const iofR = inv.type === 'CDB' ? iofAtResgate : 0;
+    // gross_sacado: solve net = gross_s - iof_s - ir_s where iof_s=gross_s*yieldRatio*iofR, etc.
+    // Approximate: bruto_sacado proportional to net received
+    const proporcao = grossAtResgate > 0 ? r.valorLiquido / (grossAtResgate - (yieldAtResgate * iofR) - (yieldAtResgate * (1-iofR) * irR)) : 1;
+    const brutoSacado = grossAtResgate * Math.min(proporcao, 1);
+    // Principal reduction = proportion of principal withdrawn
+    const principalSacado = principalAtual * (brutoSacado / grossAtResgate);
+    principalAtual -= principalSacado;
+    totalResgatesLiquido += r.valorLiquido;
+    totalResgatesBruto   += brutoSacado;
+    if (principalAtual < 0.01) { principalAtual = 0; break; }
+  }
+
+  // Now calc gross on remaining principal from start to now
+  // We need to account for the fact that after each resgate, 
+  // the remaining principal continues from the original start date
+  // (CDB doesn't restart - it's the same contract)
+  const grossNow   = principalAtual > 0 ? calcGross(principalAtual, inv.pctCdi, inv.start, calcToStr) : 0;
+  const yieldNow   = Math.max(0, grossNow - principalAtual);
+  const irRate     = getIRRate(inv.type, daysPassed);
+  const iofRate    = getIOFRate(daysPassed);
+  const iof        = inv.type === 'CDB' ? yieldNow * iofRate : 0;
+  const yieldAfterIOF = yieldNow - iof;
+  const ir         = inv.type === 'CDB' ? yieldAfterIOF * irRate : 0;
+  const netNow     = grossNow - iof - ir;
+
+  // Full-term projection with current principal
+  const grossFull  = principalAtual > 0 ? calcGross(principalAtual, inv.pctCdi, inv.start, inv.end) : 0;
+  const yieldFull  = Math.max(0, grossFull - principalAtual);
+  const irRateFull = getIRRate(inv.type, daysTotal);
+  const irFull     = inv.type === 'CDB' ? yieldFull * irRateFull : 0;
+  const netFull    = grossFull - irFull;
+
+  const bussDays = Math.round(daysPassed * 252 / 365);
+  return {
+    grossNow, yieldNow, irRate, iofRate, iof, ir, netNow,
+    grossFull, yieldFull, irFull, netFull,
+    daysPassed, daysTotal, bussDays,
+    principalAtual, totalResgatesLiquido, totalResgatesBruto,
+    valorOriginal: inv.value
+  };
+}
+
+function getIRRate(type, days) {
+  if (type === 'LCI' || type === 'LCA') return 0;
+  if (days <= 180) return 0.225;
+  if (days <= 360) return 0.20;
+  if (days <= 720) return 0.175;
+  return 0.15;
+}
+
+function getIOFRate(days) {
+  if (days >= 30) return 0;
+  // iofTable[0] = day 1 (96%), iofTable[28] = day 29 (3%), day 30+ = 0%
+  const iofTable = [96,93,90,86,83,80,76,73,70,66,63,60,56,53,50,46,43,40,36,33,30,26,23,20,16,13,10,6,3];
+  const idx = Math.max(0, Math.min(days - 1, 28));
+  return (days < 1 ? 0 : iofTable[idx]) / 100;
+}
+
+function getStatus(inv) {
+  const today = new Date();
+  const end = new Date(inv.end);
+  const diff = Math.round((end - today) / 86400000);
+  if (diff < 0) return 'expired';
+  if (diff <= 30) return 'soon';
+  return 'active';
+}
+
+// ─── RENDER ALL ───────────────────────────────────────────────────────────────
+function recalcAll() { renderAll(); }
+
+// Cache for current render cycle - reset each renderAll()
+let _renderCache = {};
+
+function renderAll() {
+  _renderCache = {}; // clear cache for fresh calculations
+  renderStats();
+  renderInvestmentsTable();
+  renderAlerts();
+  updateAlertBadge();
+  // Charts are expensive - defer to next frame to keep UI responsive
+  requestAnimationFrame(() => { updateCharts(); });
+}
+
+function calcCDBCached(inv, toDate = null) {
+  const key = inv.id + '|' + (toDate || '');
+  if (_renderCache[key]) return _renderCache[key];
+  const result = calcCDB(inv, toDate);
+  _renderCache[key] = result;
+  return result;
+}
+
+function renderStats() {
+  let totalInv = 0, totalGross = 0, totalNet = 0, totalTax = 0;
+  let totalOriginal = 0; // original value for CDI benchmark
+  investments.forEach(inv => {
+    const c = calcCDBCached(inv);
+    totalInv      += c.principalAtual;
+    totalOriginal += inv.value;
+    totalGross    += c.grossNow;
+    totalNet      += c.netNow;
+    totalTax      += c.iof + c.ir;
+  });
+  const totalYield = totalGross - totalInv;
+  const rentab = totalInv > 0 ? ((totalNet / totalInv - 1) * 100) : 0;
+
+  // ── KPI 1: Rentabilidade vs CDI ──────────────────────────────────────────
+  // What % of CDI is the portfolio earning NET?
+  // CDI % for the same period (weighted average of each investment)
+  let totalCDIYield = 0;
+  investments.forEach(inv => {
+    const c = calcCDB(inv);
+    // What would same principal earn at 100% CDI (no IR) for same period?
+    const _cacheKeyBench = inv.id + "|bench";
+    if (!_renderCache[_cacheKeyBench]) _renderCache[_cacheKeyBench] = calcGross(inv.value, 100, inv.start, new Date().toISOString().slice(0,10));
+    const grossAt100 = _renderCache[_cacheKeyBench];
+    totalCDIYield += grossAt100 - inv.value;
+  });
+  const rentabVsCDI = totalCDIYield > 0 ? ((totalYield / totalCDIYield) * 100) : 0;
+  const rentabVsCDINet = totalCDIYield > 0 ? ((totalNet - totalInv) / totalCDIYield * 100) : 0;
+
+  // ── KPI 2: Rendimento Diário ──────────────────────────────────────────────
+  // How much does the portfolio earn per business day at current rates
+  const cdiToday = getCDI() / 100; // annual CDI
+  const dailyBaseCDI = Math.pow(1 + cdiToday, 1/252) - 1;
+  let dailyYield = 0;
+  investments.forEach(inv => {
+    const c = calcCDB(inv);
+    if (c.principalAtual > 0.01) {
+      const grossToday = c.grossNow;
+      const dailyRate  = dailyBaseCDI * (inv.pctCdi / 100);
+      dailyYield += grossToday * dailyRate;
+    }
+  });
+
+  // ── KPI 3: Próximo Vencimento ──────────────────────────────────────────────
+  const today = new Date();
+  let nextVenc = null, nextVencDays = Infinity, nextVencName = '';
+  investments.forEach(inv => {
+    const end  = new Date(inv.end);
+    const diff = Math.round((end - today) / 86400000);
+    if (diff >= 0 && diff < nextVencDays) {
+      nextVencDays = diff;
+      nextVencName = inv.name;
+      nextVenc = inv.end;
+    }
+  });
+
+  // ── Update DOM ─────────────────────────────────────────────────────────────
+  document.getElementById('s-invested').textContent = fmt(totalInv);
+  document.getElementById('s-gross').textContent = fmt(totalGross);
+  document.getElementById('s-gross-sub').textContent = '+' + fmt(totalYield) + ' rendimentos';
+  document.getElementById('s-tax').textContent = fmt(totalTax);
+  document.getElementById('s-net').textContent = fmt(totalNet);
+  document.getElementById('s-net-sub').textContent = 'Rentabilidade: ' + rentab.toFixed(2) + '%';
+
+  // New KPIs
+  document.getElementById('s-rentab-cdi').textContent = rentabVsCDI.toFixed(1) + '%';
+  document.getElementById('s-rentab-cdi-sub').textContent =
+    rentabVsCDINet.toFixed(1) + '% do CDI líquido';
+
+  document.getElementById('s-daily').textContent = fmt(dailyYield);
+  document.getElementById('s-daily-sub').textContent = 'rendendo agora por dia útil';
+
+  if (nextVenc) {
+    const color = nextVencDays <= 30 ? 'var(--danger)' : nextVencDays <= 90 ? 'var(--warning)' : 'var(--accent)';
+    document.getElementById('s-next-venc').textContent = nextVencDays + ' dias';
+    document.getElementById('s-next-venc').style.color = color;
+    document.getElementById('s-next-venc-sub').textContent = nextVencName.length > 20 ? nextVencName.slice(0,20)+'…' : nextVencName;
+  } else {
+    document.getElementById('s-next-venc').textContent = '—';
+    document.getElementById('s-next-venc-sub').textContent = 'nenhum vencimento';
+  }
+}
+
+// ── FILTER INVESTMENTS (busca) ────────────────────────────────────────────────
+let _invFilter = '';
+function filterInvestments(q) {
+  _invFilter = (q || '').toLowerCase().trim();
+  renderInvestmentsTable();
+}
+
+function renderInvestmentsTable() {
+  const tbody = document.getElementById('investments-tbody');
+  const empty = document.getElementById('investments-empty');
+  const wrap = document.getElementById('investments-table-wrap');
+  if (investments.length === 0) {
+    empty.style.display = 'block'; wrap.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; wrap.style.display = 'block';
+  // Aplicar filtro de busca
+  const filtered = _invFilter
+    ? investments.filter(inv => inv.name.toLowerCase().includes(_invFilter) || (inv.type||'').toLowerCase().includes(_invFilter))
+    : investments;
+  // Atualizar contador
+  const countEl = document.getElementById('inv-count');
+  if (countEl) countEl.textContent = _invFilter
+    ? `${filtered.length} de ${investments.length} investimento${investments.length !== 1 ? 's' : ''}`
+    : `${investments.length} investimento${investments.length !== 1 ? 's' : ''}`;
+  tbody.innerHTML = filtered.map(inv => {
+    const c = calcCDBCached(inv);
+    const st = getStatus(inv);
+    const stLabel = { active: 'Ativo', soon: 'Vence em breve', expired: 'Vencido' }[st];
+    const stClass = { active: 'status-active', soon: 'status-soon', expired: 'status-expired' }[st];
+    const liqLabel = inv.liquidity === 'diaria' ? 'Diária' : 'No Vencimento';
+    const liqClass = inv.liquidity === 'diaria' ? 'tag-diaria' : 'tag-venc';
+    const irPct = (c.irRate * 100).toFixed(1);
+    const resgates = inv.resgates || [];
+    const hasResgates = resgates.length > 0;
+    return `<tr class="${hasResgates ? 'inv-has-resgate' : ''}">
+      <td><div class="td-name">${inv.name}</div><div style="font-size:11px;color:var(--text3);">${inv.pctCdi}% CDI · ${inv.type}</div></td>
+      <td class="td-mono">${inv.pctCdi}%</td>
+      <td class="td-mono">${fmt(inv.value)}</td>
+      <td>${hasResgates ? `<span class="td-mono" style="color:var(--warning);">-${fmt(c.totalResgatesLiquido)}</span><div style="font-size:10px;color:var(--text3);">${resgates.length} resgate(s)</div>` : '<span style="color:var(--text3);font-size:12px;">—</span>'}</td>
+      <td class="td-mono" style="color:${hasResgates ? 'var(--warning)' : 'var(--text)'};">${fmt(c.principalAtual)}</td>
+      <td class="td-mono" style="color:var(--accent2);">${fmt(c.grossNow)}</td>
+      <td class="td-mono" style="color:var(--danger);">${irPct}%</td>
+      <td class="td-mono" style="color:var(--accent);font-weight:600;">${fmt(c.netNow)}</td>
+      <td><span style="color:var(--accent);">+${fmt(c.yieldNow)}</span><div class="progress"><div class="progress-fill" style="width:${Math.min(100,(c.daysPassed/Math.max(c.daysTotal,1))*100)}%"></div></div></td>
+      <td style="font-size:12px;">${fmtDate(inv.start)}</td>
+      <td style="font-size:12px;">${fmtDate(inv.end)}</td>
+      <td><span class="tag ${liqClass}">${liqLabel}</span></td>
+      <td><span class="status-badge ${stClass}"><span class="dot"></span>${stLabel}</span></td>
+      <td style="white-space:nowrap;">
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button class="tbl-action-btn tbl-action-warn" onclick="openResgateModal('${inv.id}')" title="Resgatar" style="padding:0 10px;width:auto;gap:5px;font-size:12px;font-weight:500;font-family:'Instrument Sans',sans-serif;">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Resgatar
+          </button>
+          <button class="tbl-action-btn" onclick="openModal('${inv.id}')" title="Editar">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="tbl-action-btn tbl-action-danger" onclick="deleteInvestment('${inv.id}')" title="Excluir">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── CHARTS ───────────────────────────────────────────────────────────────────
+function chartDefaults() {
+  const isDark = theme === DARK;
+  return {
+    grid: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+    text: isDark ? '#8b95ad' : '#6b7280'
+  };
+}
+
+function initCharts() {
+  const cd = chartDefaults();
+  const baseOpts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: cd.text, font: { family: 'Instrument Sans' } } } },
+    scales: {
+      x: { grid: { color: cd.grid }, ticks: { color: cd.text } },
+      y: { grid: { color: cd.grid }, ticks: { color: cd.text, callback: v => 'R$' + fmtShort(v) } }
+    }
+  };
+  chartEvolution = new Chart(document.getElementById('chart-evolution'), { type: 'line', data: { labels: [], datasets: [] }, options: { ...baseOpts, plugins: { ...baseOpts.plugins } } });
+  chartByInv = new Chart(document.getElementById('chart-by-investment'), { type: 'doughnut', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: cd.text, font: { family: 'Instrument Sans' }, boxWidth: 12 } } } } });
+  chartMonthly = new Chart(document.getElementById('chart-monthly'), { type: 'bar', data: { labels: [], datasets: [] }, options: { ...baseOpts } });
+}
+
+function initChartMonthlyPct() {
+  if (chartMonthlyPct) return; // já inicializado
+  const cd = chartDefaults();
+  const canvas = document.getElementById('chart-monthly-pct');
+  if (!canvas) return;
+  chartMonthlyPct = new Chart(canvas, {
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: cd.text, font: { family: 'Instrument Sans' }, boxWidth: 12 } } },
+      scales: {
+        x: { grid: { color: cd.grid }, ticks: { color: cd.text } },
+        y: { grid: { color: cd.grid }, ticks: { color: cd.text, callback: v => v.toFixed(2) + '%' } }
+      }
+    }
+  });
+}
+
+function updateChartColors() {
+  [chartEvolution, chartMonthly, chartMonthlyPct].forEach(ch => {
+    if (!ch) return;
+    const cd = chartDefaults();
+    ch.options.scales.x.grid.color = cd.grid;
+    ch.options.scales.y.grid.color = cd.grid;
+    ch.options.scales.x.ticks.color = cd.text;
+    ch.options.scales.y.ticks.color = cd.text;
+    ch.options.plugins.legend.labels.color = cd.text;
+    ch.update();
+  });
+  if (chartByInv) {
+    chartByInv.options.plugins.legend.labels.color = chartDefaults().text;
+    chartByInv.update();
+  }
+}
+
+function updateCharts() {
+  // Only update charts if dashboard is visible (performance optimization)
+  const dashActive = document.getElementById('page-dashboard').classList.contains('active');
+  if (dashActive || _forceChartUpdate) {
+    updateEvolutionChart();
+    updateByInvChart();
+    updateMonthlyChart();
+    _forceChartUpdate = false;
+  }
+}
+let _forceChartUpdate = false;
+
+function updateEvolutionChart() {
+  const months = getLast12Months();
+  const dataset = months.map(m => {
+    const [yr, mo] = m.split('-').map(Number);
+    // Use last day of month (first day of next month minus 1 day)
+    const nextMoDate = new Date(mo === 12 ? yr+1 : yr, mo === 12 ? 0 : mo, 1);
+    nextMoDate.setDate(nextMoDate.getDate() - 1);
+    const lastDay = nextMoDate.toISOString().slice(0,10);
+    let total = 0;
+    investments.forEach(inv => {
+      if (inv.start <= lastDay) {
+        total += calcCDB(inv, lastDay).netNow;
+      }
+    });
+    return total;
+  });
+  chartEvolution.data.labels = months.map(m => { const [y,mo] = m.split('-'); return monthName(parseInt(mo)) + '/' + y.slice(2); });
+  chartEvolution.data.datasets = [{
+    label: 'Patrimônio Líquido',
+    data: dataset,
+    borderColor: '#00e5b0',
+    backgroundColor: 'rgba(0,229,176,0.08)',
+    tension: 0.4, fill: true, pointRadius: 3,
+    pointBackgroundColor: '#00e5b0'
+  }];
+  chartEvolution.update();
+}
+
+function updateByInvChart() {
+  if (investments.length === 0) {
+    chartByInv.data.labels = [];
+    chartByInv.data.datasets = [{ data: [], backgroundColor: [], borderWidth: 0 }];
+    chartByInv.update();
+    return;
+  }
+  // Group by "pctCdi% CDI - type" and sum invested value
+  const groups = {};
+  investments.forEach(inv => {
+    const key = `${inv.pctCdi}% CDI · ${inv.type}`;
+    groups[key] = (groups[key] || 0) + inv.value;
+  });
+  const totalInvested = Object.values(groups).reduce((a, b) => a + b, 0);
+  const labels = Object.keys(groups).map(key => {
+    const pct = ((groups[key] / totalInvested) * 100).toFixed(1);
+    return `${key} (${pct}%)`;
+  });
+  const data = Object.values(groups).map(v => parseFloat(((v / totalInvested) * 100).toFixed(2)));
+  const colors = ['#00e5b0','#0088ff','#7c3aed','#f5a623','#ff4757','#2ed573','#ff6348','#eccc68'];
+  chartByInv.data.labels = labels;
+  chartByInv.data.datasets = [{ data, backgroundColor: colors.slice(0, data.length), borderWidth: 0 }];
+  // Update tooltip to show % and value
+  chartByInv.options.plugins.tooltip = {
+    callbacks: {
+      label: (ctx) => {
+        const key = Object.keys(groups)[ctx.dataIndex];
+        const val = groups[key];
+        return ` ${ctx.parsed.toFixed(1)}% — ${fmt(val)}`;
+      }
+    }
+  };
+  chartByInv.update();
+}
+
+function updateMonthlyChart() {
+  // Always show last 12 months: 11 past + current month
+  const nowMonth = new Date().toISOString().slice(0, 7);
+  const months = [];
+  const d = new Date(); d.setDate(1);
+  for (let i = 11; i >= 0; i--) {
+    const x = new Date(d); x.setMonth(d.getMonth() - i);
+    months.push(x.toISOString().slice(0, 7));
+  }
+
+  const yields = months.map(m => {
+    const [yr, mo] = m.split('-').map(Number);
+    const firstOfMonth = m + '-01';
+    const nextMo = mo === 12 ? `${yr+1}-01-01` : `${yr}-${String(mo+1).padStart(2,'0')}-01`;
+    // For the current month, cap at today
+    const todayStr = new Date().toISOString().slice(0,10);
+    const effectiveEnd = m === nowMonth ? todayStr : nextMo;
+
+    let monthYield = 0;
+    investments.forEach(inv => {
+      if (inv.start >= effectiveEnd || inv.end <= firstOfMonth) return;
+      const calcStart = inv.start > firstOfMonth ? inv.start : firstOfMonth;
+      const calcEnd   = inv.end   < effectiveEnd ? inv.end   : effectiveEnd;
+      const principal = calcCDBCached(inv).principalAtual; // use real principal after resgates
+      const g1 = calcGross(principal, inv.pctCdi, inv.start, calcStart);
+      const g2 = calcGross(principal, inv.pctCdi, inv.start, calcEnd);
+      monthYield += Math.max(0, g2 - g1);
+    });
+    return monthYield;
+  });
+
+  // Green = past months, gold = current month
+  const colors = months.map(m =>
+    m < nowMonth ? 'rgba(0,229,176,0.75)' : 'rgba(245,166,35,0.85)'
+  );
+
+  chartMonthly.data.labels = months.map(m => {
+    const [y, mo] = m.split('-');
+    return monthName(parseInt(mo)) + '/' + y.slice(2);
+  });
+  chartMonthly.data.datasets = [{
+    label: 'Rendimento do Mês',
+    data: yields,
+    backgroundColor: colors,
+    borderRadius: 6,
+    borderSkipped: false
+  }];
+  chartMonthly.update();
+}
+
+// ─── REPORTS ─────────────────────────────────────────────────────────────────
+function renderReports() {
+  // 1. Gráfico de rentabilidade mensal (lazy — canvas só existe quando aba está visível)
+  try {
+    initChartMonthlyPct();
+    if (chartMonthlyPct) updateMonthlyPctChart();
+  } catch(e) { console.warn('renderReports: gráfico mensal falhou:', e); }
+
+  // 2. Comparativo Anualizado — independente do gráfico
+  try { renderComparativoAnualizado(); } catch(e) { console.warn('renderReports: comparativo falhou:', e); }
+
+  // 3. Tabela Resumo Completo
+  try {
+    const tbody = document.getElementById('summary-tbody');
+    if (tbody) {
+      tbody.innerHTML = investments.map(inv => {
+        const c = calcCDB(inv);
+        const rentab = ((c.netFull / inv.value - 1) * 100).toFixed(2);
+        return `<tr>
+          <td class="td-name">${inv.name}</td>
+          <td class="td-mono">${fmt(inv.value)}</td>
+          <td class="td-mono" style="color:var(--accent);">+${fmt(c.yieldNow)}</td>
+          <td class="td-mono" style="color:var(--accent2);">+${fmt(c.yieldFull - c.yieldNow)}</td>
+          <td class="td-mono">${fmt(c.grossFull)}</td>
+          <td style="color:var(--danger);">${(c.irRate*100).toFixed(1)}%</td>
+          <td class="td-mono" style="color:var(--danger);">${fmt(c.irFull)}</td>
+          <td class="td-mono" style="color:var(--accent);font-weight:600;">${fmt(c.netFull)}</td>
+          <td><span class="badge-green" style="color:var(--accent);">+${rentab}%</span></td>
+        </tr>`;
+      }).join('') || `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:30px;">Nenhum investimento cadastrado</td></tr>`;
+    }
+  } catch(e) { console.warn('renderReports: tabela falhou:', e); }
+
+  // 3. Vencimentos por Mês + Rendimento Estimado
+  try {
+    const vencDiv    = document.getElementById('venc-by-month');
+    const receiveDiv = document.getElementById('receive-by-month');
+    if (!vencDiv || !receiveDiv) throw new Error('elementos não encontrados');
+
+    const months = getNext12Months();
+    const vencByMonth    = {};
+    const receiveByMonth = {};
+    months.forEach(m => { vencByMonth[m] = []; receiveByMonth[m] = 0; });
+
+    investments.forEach(inv => {
+      try {
+        const c  = calcCDB(inv);
+        const em = inv.end.slice(0,7);
+        if (vencByMonth[em] !== undefined) vencByMonth[em].push({ inv, c });
+        months.forEach(m => {
+          const [yr, mo] = m.split('-').map(Number);
+          const firstOfMonth = m + '-01';
+          const nextMo = mo === 12 ? `${yr+1}-01-01` : `${yr}-${String(mo+1).padStart(2,'0')}-01`;
+          if (inv.start >= nextMo || inv.end <= firstOfMonth) return;
+          const calcStart = inv.start > firstOfMonth ? inv.start : firstOfMonth;
+          const calcEnd   = inv.end   < nextMo       ? inv.end   : nextMo;
+          const principal = calcCDBCached(inv).principalAtual;
+          const g1 = calcGross(principal, inv.pctCdi, inv.start, calcStart);
+          const g2 = calcGross(principal, inv.pctCdi, inv.start, calcEnd);
+          receiveByMonth[m] = (receiveByMonth[m] || 0) + Math.max(0, g2 - g1);
+        });
+      } catch(ie) { console.warn('renderReports: erro em inv', inv && inv.name, ie); }
+    });
+
+    vencDiv.innerHTML = months.map(m => {
+      const items = vencByMonth[m] || [];
+      if (items.length === 0) return '';
+      const total = items.reduce((s, x) => s + x.c.netFull, 0);
+      return `<div class="month-card" style="margin-bottom:8px;">
+        <div><div class="month-name">${monthName(parseInt(m.split('-')[1]))} ${m.split('-')[0]}</div>
+        <div style="font-size:12px;color:var(--text3);">${items.length} vencimento(s)</div></div>
+        <div class="month-values"><div class="month-gross">${fmt(total)}</div><div class="month-net">líquido</div></div>
+      </div>`;
+    }).join('') || '<div style="color:var(--text3);font-size:13px;padding:20px 0;">Nenhum vencimento nos próximos 12 meses.</div>';
+
+    const totalEstimado = Object.values(receiveByMonth).reduce((s, v) => s + v, 0);
+    const receiveItems  = months.filter(m => (receiveByMonth[m] || 0) > 0.01);
+
+    if (receiveItems.length === 0) {
+      receiveDiv.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:20px 0;">Nenhum rendimento estimado.</div>';
+    } else {
+      const half = Math.ceil(receiveItems.length / 2);
+      const makeCard = m => {
+        const val = receiveByMonth[m] || 0;
+        return `<div class="month-card" style="margin-bottom:8px;">
+          <div><div class="month-name">${monthName(parseInt(m.split('-')[1]))} ${m.split('-')[0]}</div></div>
+          <div class="month-values"><div class="month-gross" style="color:var(--accent);">+${fmt(val)}</div><div class="month-net">estimado</div></div>
+        </div>`;
+      };
+      receiveDiv.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>${receiveItems.slice(0, half).map(makeCard).join('')}</div>
+        <div>${receiveItems.slice(half).map(makeCard).join('')}</div>
+      </div>`;
+    }
+
+    const totalBox = document.getElementById('receive-total-box');
+    if (totalBox) {
+      totalBox.innerHTML = totalEstimado > 0 ? `
+        <div style="margin-top:14px;padding:14px 16px;background:rgba(0,229,176,0.07);border:1px solid rgba(0,229,176,0.2);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;color:var(--text2);font-weight:500;">Total estimado (12 meses)</span>
+          <span style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--accent);">+${fmt(totalEstimado)}</span>
+        </div>` : '';
+    }
+  } catch(e) { console.warn('renderReports: vencimentos falhou:', e); }
+}
+
+
+// ─── ALERTS ──────────────────────────────────────────────────────────────────
+function renderAlerts() {
+  const today = new Date();
+  const vencList = document.getElementById('alert-venc-list');
+  const vencItems = investments.filter(inv => {
+    const diff = Math.round((new Date(inv.end) - today) / 86400000);
+    return diff >= 0 && diff <= 60;
+  }).sort((a,b) => new Date(a.end) - new Date(b.end));
+  vencList.innerHTML = vencItems.length === 0
+    ? '<div style="color:var(--text3);font-size:13px;padding:20px 0;">Nenhum vencimento próximo (60 dias).</div>'
+    : vencItems.map(inv => {
+        const diff = Math.round((new Date(inv.end) - today) / 86400000);
+        const cls = diff <= 7 ? 'alert-danger' : diff <= 30 ? 'alert-warning' : 'alert-success';
+        const c = calcCDB(inv);
+        return `<div class="alert ${cls}" style="margin-bottom:8px;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          <div><strong>${inv.name}</strong> — vence em <strong>${diff} dias</strong> (${fmtDate(inv.end)})<br>
+          <span style="font-size:12px;opacity:0.8;">Valor líquido previsto: ${fmt(c.netFull)}</span></div>
+        </div>`;
+      }).join('');
+
+}
+
+function updateAlertBadge() {
+  const today = new Date();
+  const count = investments.filter(inv => Math.round((new Date(inv.end) - today) / 86400000) <= 30 && new Date(inv.end) >= today).length;
+  // Sidebar badge
+  const badge = document.getElementById('alert-count');
+  if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline' : 'none'; }
+  // Mobile nav badge
+  const mbadge = document.getElementById('mnav-alert-badge');
+  if (mbadge) { mbadge.textContent = count; mbadge.classList.toggle('show', count > 0); }
+}
+
+// ─── SIMULATOR ───────────────────────────────────────────────────────────────
+function runSimulator() {
+  // Sync CDI display with current sidebar value
+  const curCdi = getCDI();
+  const simCdiEl = document.getElementById('sim-cdi');
+  if (!simCdiEl._manualEdit) simCdiEl.value = curCdi.toFixed(2);
+  // Set initial money value if empty
+  const simVal = document.getElementById('sim-value');
+  if (!simVal.value) setMoneyValue(simVal, 10000);
+  const value = getMoneyValue(document.getElementById('sim-value')) || 10000;
+  const pctCdi = parseFloat(document.getElementById('sim-pct-cdi').value) || 100;
+  const cdi = parseFloat(document.getElementById('sim-cdi').value) || getCDI();
+  const days = parseInt(document.getElementById('sim-days').value) || 365;
+  const res = simCalc(value, pctCdi, cdi, days);
+  document.getElementById('sim-result-box').innerHTML = `
+    <div class="sim-result">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">Valor Líquido Final</div>
+      <div class="sim-big">${fmt(res.net)}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">${days} dias · ${pctCdi}% CDI</div>
+      <div class="sim-row"><span>Valor investido</span><span class="mono">${fmt(value)}</span></div>
+      <div class="sim-row"><span>Rendimento bruto</span><span class="mono" style="color:var(--accent2);">+${fmt(res.yield)}</span></div>
+      <div class="sim-row"><span>IR (${(res.irRate*100).toFixed(1)}%)</span><span class="mono" style="color:var(--danger);">-${fmt(res.ir)}</span></div>
+      <div class="sim-row"><span>IOF</span><span class="mono" style="color:var(--danger);">-${fmt(res.iof)}</span></div>
+      <div class="sim-row"><span><strong>Líquido</strong></span><span class="mono" style="color:var(--accent);font-weight:600;">${fmt(res.net)}</span></div>
+      <div class="sim-row"><span>Rentabilidade líquida</span><span style="color:var(--accent);">+${((res.net/value-1)*100).toFixed(2)}%</span></div>
+      <div class="sim-row"><span>Rentab. ao mês</span><span style="color:var(--accent2);">~${(Math.pow(res.net/value, 30/days)*100-100).toFixed(3)}% a.m.</span></div>
+    </div>`;
+  const prazosBr = [[30,'30 dias'],[90,'90 dias'],[180,'180 dias'],[365,'1 ano'],[720,'2 anos'],[1095,'3 anos']];
+  document.getElementById('sim-comparison').innerHTML = `
+    <table style="width:100%;font-size:13px;">
+      <thead><tr><th>Prazo</th><th>Bruto</th><th>IR</th><th>Líquido</th></tr></thead>
+      <tbody>${prazosBr.map(([d, label]) => {
+        const r = simCalc(value, pctCdi, cdi, d);
+        const highlight = Math.abs(d - days) < 5 ? 'style="background:rgba(0,229,176,0.07);"' : '';
+        return `<tr ${highlight}><td>${label}</td><td class="mono">${fmt(r.gross)}</td><td class="mono" style="color:var(--danger);">-${fmt(r.ir)}</td><td class="mono" style="color:var(--accent);">${fmt(r.net)}</td></tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+function simCalc(value, pctCdi, cdi, days) {
+  // Use same formula as BCB: daily CDI * pctCdi/100
+  const annualRate = cdi / 100;
+  const baseDailyRate = Math.pow(1 + annualRate, 1/252) - 1;
+  const dailyRate = baseDailyRate * (pctCdi / 100);
+  const bussDays = Math.round(days * 252 / 365);
+  const gross = value * Math.pow(1 + dailyRate, bussDays);
+  const yld = gross - value;
+  const irRate = getIRRate('CDB', days);
+  const iofRate = getIOFRate(days);
+  const iof = yld * iofRate;
+  const yldAfterIOF = yld - iof;
+  const ir = yldAfterIOF * irRate;
+  const net = gross - iof - ir;
+  return { gross, yield: yld, irRate, iof, ir, net };
+}
+
+// ─── EXPORT PDF ──────────────────────────────────────────────────────────────
+function exportPDF() {
+  const w = window.open('', '_blank');
+  const now = new Date().toLocaleDateString('pt-BR');
+  let rows = investments.map(inv => {
+    const c = calcCDB(inv);
+    return '<tr><td>' + inv.name + '</td><td>' + inv.pctCdi + '% CDI</td><td>' + fmt(inv.value) + '</td><td>' + fmt(c.grossNow) + '</td><td>' + fmt(c.ir) + '</td><td>' + fmt(c.netNow) + '</td><td>' + fmtDate(inv.end) + '</td></tr>';
+  }).join('');
+  let totInv=0, totGross=0, totNet=0;
+  investments.forEach(inv => { const c = calcCDB(inv); totInv += inv.value; totGross += c.grossNow; totNet += c.netNow; });
+  const style = 'body{font-family:Arial,sans-serif;max-width:900px;margin:0 auto;padding:20px;color:#222;}h1{color:#007a5e;}table{width:100%;border-collapse:collapse;margin:16px 0;}th,td{border:1px solid #ddd;padding:8px 10px;text-align:left;}th{background:#f5f5f5;}tr:nth-child(even){background:#fafafa;}.sum{background:#e8f7f2;font-weight:bold;}';
+  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatorio CDB</title><style>' + style + '</style></head>'
+    + '<body><h1>Relatorio CDB Invest</h1><p>Gerado em ' + now + ' - CDI: ' + getCDI() + '% a.a.</p>'
+    + '<table><thead><tr><th>Nome</th><th>% CDI</th><th>Aplicado</th><th>Bruto</th><th>IR</th><th>Liquido</th><th>Vencimento</th></tr></thead>'
+    + '<tbody>' + rows + '<tr class="sum"><td colspan="2">TOTAL</td><td>' + fmt(totInv) + '</td><td>' + fmt(totGross) + '</td><td>' + fmt(totGross - totNet) + '</td><td>' + fmt(totNet) + '</td><td>-</td></tr></tbody></table>'
+    + '<' + 'script>window.print();</' + 'script></body></html>';
+  w.document.write(html);
+  w.document.close();
+}
+
+
+// ─── MASKS ────────────────────────────────────────────────────────────────────
+// ── MÁSCARA % CDI — inteiro com ponto de milhar e % ──────────────────────────
+function maskPctCdi(el) {
+  let raw = el.value.replace(/[^\d]/g, '');
+  if (!raw) { el.value = ''; return; }
+  let num = parseInt(raw, 10);
+  if (isNaN(num)) { el.value = ''; return; }
+  // Formatar com ponto de milhar
+  el.value = num.toLocaleString('pt-BR') + '%';
+  // Manter cursor antes do %
+  const pos = el.value.length - 1;
+  try { el.setSelectionRange(pos, pos); } catch(e) {}
+}
+function getPctCdiValue(el) {
+  const raw = (el.value || '').replace(/[^\d]/g, '');
+  return parseInt(raw, 10) || 0;
+}
+
+// ── VER TABELA IR/IOF ─────────────────────────────────────────────────────────
+function toggleTabelaIR() {
+  const box = document.getElementById('tabela-ir-box');
+  if (!box) return;
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+function maskMoney(el) {
+  let v = el.value.replace(/\D/g, '');
+  if (!v) { el.value = ''; return; }
+  v = parseInt(v, 10);
+  // Format as Brazilian currency: R$ 1.234,56
+  el.value = (v / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function getMoneyValue(el) {
+  // Extract numeric value from masked string
+  const raw = el.value.replace(/[R$\s.]/g, '').replace(',', '.');
+  return parseFloat(raw) || 0;
+}
+
+function setMoneyValue(el, num) {
+  if (!num && num !== 0) { el.value = ''; return; }
+  el.value = num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function maskDecimal(el) {
+  let v = el.value.replace(/[^0-9,\.]/g, '').replace('.', ',');
+  const parts = v.split(',');
+  if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('');
+  el.value = v;
+}
+
+function maskSelicRate(el) {
+  // Mask: digits only, always 2 decimal places, appends %
+  // Result pattern: 0,00% or 00,00%
+  let digits = el.value.replace(/\D/g, '');
+  if (!digits) { el.value = ''; return; }
+  // Limit to 4 digits (max 99,99%)
+  digits = digits.slice(0, 4);
+  // Pad to at least 3 digits so we always have d,dd
+  while (digits.length < 3) digits = '0' + digits;
+  const intPart = digits.slice(0, digits.length - 2).replace(/^0+/, '') || '0';
+  const decPart = digits.slice(-2);
+  el.value = `${intPart},${decPart}%`;
+  // Place cursor before %
+  const pos = el.value.length - 1;
+  requestAnimationFrame(() => { try { el.setSelectionRange(pos, pos); } catch(e){} });
+}
+
+function getSelicRateValue(el) {
+  // Extract float from masked value like "14,75%"
+  return parseFloat(el.value.replace('%', '').replace(',', '.')) || 0;
+}
+
+// ─── SELIC HISTORY PAGE ───────────────────────────────────────────────────────
+function addSelicEntry() {
+  const dateVal = document.getElementById('selic-new-date').value;
+  const rate = getSelicRateValue(document.getElementById('selic-new-rate'));
+  if (!dateVal) { alert('Informe a data da decisão.'); return; }
+  if (!rate || rate <= 0 || rate > 50) { alert('Informe uma taxa Selic válida (ex: 14,75).'); return; }
+  const custom = JSON.parse(localStorage.getItem('cdb_selic_custom') || '[]');
+  // Check for duplicate date
+  const allHistory = getFullSelicHistory();
+  if (allHistory.some(e => e.date === dateVal)) {
+    if (!confirm('Já existe uma entrada para esta data. Deseja substituir?')) return;
+    // Remove existing custom entry for this date
+    const filtered = custom.filter(e => e.date !== dateVal);
+    filtered.push({ date: dateVal, selic: rate });
+    localStorage.setItem('cdb_selic_custom', JSON.stringify(filtered));
+  } else {
+    custom.push({ date: dateVal, selic: rate });
+    localStorage.setItem('cdb_selic_custom', JSON.stringify(custom));
+  }
+  document.getElementById('selic-new-date').value = '';
+  document.getElementById('selic-new-rate').value = '';
+  updateSelicDisplay();
+  renderSelicPage();
+  recalcAll();
+  // Show feedback
+  const btn = document.querySelector('#page-selic .btn-primary');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '✓ Adicionado!';
+  btn.style.background = 'var(--accent2)';
+  setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; }, 2000);
+}
+
+function deleteSelicEntry(dateStr) {
+  if (!confirm('Remover esta entrada do histórico personalizado?')) return;
+  const custom = JSON.parse(localStorage.getItem('cdb_selic_custom') || '[]');
+  const filtered = custom.filter(e => e.date !== dateStr);
+  localStorage.setItem('cdb_selic_custom', JSON.stringify(filtered));
+  updateSelicDisplay();
+  renderSelicPage();
+  recalcAll();
+}
+
+function renderSelicPage() {
+  const history = getFullSelicHistory();
+  const custom = JSON.parse(localStorage.getItem('cdb_selic_custom') || '[]');
+  const customDates = new Set(custom.map(e => e.date));
+  const tbody = document.getElementById('selic-history-tbody');
+  const lastEntry = history[history.length - 1];
+  const currentSelic = lastEntry.selic;
+  const currentCdi = selicToCdi(currentSelic);
+  // Update current display
+  const selicDisp = document.getElementById('selic-current-display');
+  const cdiDisp = document.getElementById('cdi-current-display');
+  const sinceDisp = document.getElementById('selic-since-display');
+  if (selicDisp) selicDisp.textContent = currentSelic.toFixed(2).replace('.', ',') + '%';
+  if (cdiDisp) cdiDisp.textContent = currentCdi.toFixed(2).replace('.', ',') + '% a.a.';
+  if (sinceDisp) {
+    const d = new Date(lastEntry.date + 'T12:00:00');
+    sinceDisp.textContent = 'Vigente desde ' + d.toLocaleDateString('pt-BR');
+  }
+  document.getElementById('selic-count').textContent = history.length + ' decisões';
+  // Render table (newest first)
+  const reversed = [...history].reverse();
+  tbody.innerHTML = reversed.map((entry, idx) => {
+    const realIdx = history.length - 1 - idx;
+    const prev = realIdx > 0 ? history[realIdx - 1] : null;
+    const diff = prev ? (entry.selic - prev.selic) : null;
+    const cdi = selicToCdi(entry.selic);
+    const isCustom = customDates.has(entry.date);
+    // Duration: days until next decision (or today)
+    const nextEntry = realIdx < history.length - 1 ? history[realIdx + 1] : null;
+    const entryDate = new Date(entry.date + 'T12:00:00');
+    const endDate = nextEntry ? new Date(nextEntry.date + 'T12:00:00') : new Date();
+    const days = Math.max(0, Math.round((endDate - entryDate) / 86400000));
+    let diffHtml = '<span style="color:var(--text3);">—</span>';
+    if (diff !== null) {
+      const sign = diff > 0 ? '+' : '';
+      const color = diff > 0 ? 'var(--danger)' : diff < 0 ? 'var(--accent)' : 'var(--text3)';
+      const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '●';
+      diffHtml = diff === 0
+        ? '<span style="color:var(--text3);">● Mantida</span>'
+        : `<span style="color:${color};">${arrow} ${sign}${diff.toFixed(2).replace('.', ',')}%</span>`;
+    }
+    const dateFormatted = entryDate.toLocaleDateString('pt-BR');
+    const deleteBtn = isCustom
+      ? `<button class="btn btn-danger btn-sm" onclick="deleteSelicEntry('${entry.date}')">Remover</button>`
+      : '<span style="font-size:11px;color:var(--text3);">Base</span>';
+    return `<tr>
+      <td style="color:var(--text3);font-size:12px;">${realIdx + 1}</td>
+      <td style="font-weight:600;">${dateFormatted}${isCustom ? ' <span style="font-size:10px;color:var(--accent2);background:rgba(0,136,255,0.1);padding:1px 6px;border-radius:4px;">personalizado</span>' : ''}</td>
+      <td class="td-mono" style="font-size:15px;font-weight:600;color:var(--text);">${entry.selic.toFixed(2).replace('.', ',')}%</td>
+      <td class="td-mono" style="color:var(--accent2);">${cdi.toFixed(2).replace('.', ',')}%</td>
+      <td>${diffHtml}</td>
+      <td style="font-size:12px;color:var(--text3);">${days} dias</td>
+      <td>${deleteBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── BACKUP / RESTORE ────────────────────────────────────────────────────────
+function backupData() {
+  const data = {
+    version: '2.1',
+    exportedAt: new Date().toISOString(),
+    investments: investments
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cdb-invest-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function restoreData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const list = data.investments || data; // support raw array too
+      if (!Array.isArray(list)) throw new Error('Formato inválido');
+      if (!confirm(`Restaurar ${list.length} investimento(s)? Os dados atuais serão substituídos.`)) return;
+      investments = list;
+      saveData();
+      renderAll();
+      alert('Dados restaurados com sucesso!');
+    } catch(err) {
+      alert('Erro ao importar: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // reset input
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+// ─── RESGATES ────────────────────────────────────────────────────────────────
+let resgateInvId = null;
+
+function openResgateModal(invId) {
+  resgateInvId = invId;
+  const inv = investments.find(i => i.id === invId);
+  const c   = calcCDB(inv);
+  document.getElementById('resgate-inv-info').innerHTML =
+    '<strong>' + inv.name + '</strong> &nbsp;·&nbsp; ' + inv.pctCdi + '% CDI' +
+    '<br>Saldo principal atual: <strong>' + fmt(c.principalAtual) + '</strong>' +
+    ' &nbsp;·&nbsp; Bruto atual: <strong>' + fmt(c.grossNow) + '</strong>' +
+    ' &nbsp;·&nbsp; Líquido atual: <strong>' + fmt(c.netNow) + '</strong>';
+  document.getElementById('r-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('r-valor').value = '';
+  document.getElementById('resgate-preview').innerHTML = '';
+  renderResgateHistory(inv);
+  document.getElementById('resgate-modal').classList.add('open');
+}
+
+function renderResgateHistory(inv) {
+  const resgates = (inv.resgates || []).slice().sort((a,b) => b.date.localeCompare(a.date));
+  const el = document.getElementById('resgate-history');
+  if (resgates.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;">Histórico de Resgates</div>' +
+    resgates.map((r,i) => `
+      <div class="resgate-item">
+        <div>
+          <div style="font-weight:600;">${fmtDate(r.date)}</div>
+          <div class="resgate-date">Registrado em ${fmtDate(r.date)}</div>
+        </div>
+        <div style="text-align:right;display:flex;align-items:center;gap:10px;">
+          <div>
+            <div class="resgate-valor">-${fmt(r.valorLiquido)}</div>
+            <div style="font-size:10px;color:var(--text3);">líquido recebido</div>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="deleteResgate('${inv.id}', ${i})">✕</button>
+        </div>
+      </div>`).join('');
+}
+
+function closeResgateModal() {
+  document.getElementById('resgate-modal').classList.remove('open');
+  resgateInvId = null;
+}
+function closeResgateModalOutside(e) { if (e.target.id === 'resgate-modal') closeResgateModal(); }
+
+function saveResgate() {
+  const date  = document.getElementById('r-date').value;
+  const valor = getMoneyValue(document.getElementById('r-valor'));
+  if (!date)  { alert('Informe a data do resgate.'); return; }
+  if (!valor || valor <= 0) { alert('Informe o valor líquido recebido.'); return; }
+  const inv = investments.find(i => i.id === resgateInvId);
+  const c   = calcCDB(inv, date);
+  if (valor > c.netNow * 1.05) {
+    if (!confirm('O valor informado parece maior que o saldo líquido atual. Confirmar mesmo assim?')) return;
+  }
+  if (!inv.resgates) inv.resgates = [];
+  inv.resgates.push({ date, valorLiquido: valor });
+  inv.resgates.sort((a,b) => a.date.localeCompare(b.date));
+  saveData();
+  renderAll();
+  renderResgateHistory(inv);
+  const newC = calcCDB(inv);
+  document.getElementById('resgate-inv-info').innerHTML =
+    '<strong>' + inv.name + '</strong> &nbsp;·&nbsp; ' + inv.pctCdi + '% CDI' +
+    '<br>Saldo principal atual: <strong>' + fmt(newC.principalAtual) + '</strong>' +
+    ' &nbsp;·&nbsp; Bruto atual: <strong>' + fmt(newC.grossNow) + '</strong>' +
+    ' &nbsp;·&nbsp; Líquido atual: <strong>' + fmt(newC.netNow) + '</strong>';
+  document.getElementById('r-valor').value = '';
+  document.getElementById('resgate-preview').innerHTML =
+    '<div style="background:rgba(0,229,176,0.08);border:1px solid rgba(0,229,176,0.2);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--accent);">✓ Resgate registrado!</div>';
+  setTimeout(() => { document.getElementById('resgate-preview').innerHTML = ''; }, 3000);
+}
+
+function deleteResgate(invId, idx) {
+  if (!confirm('Remover este resgate?')) return;
+  const inv = investments.find(i => i.id === invId);
+  inv.resgates.splice(idx, 1);
+  saveData();
+  renderAll();
+  renderResgateHistory(inv);
+  const c = calcCDB(inv);
+  document.getElementById('resgate-inv-info').innerHTML =
+    '<strong>' + inv.name + '</strong> &nbsp;·&nbsp; ' + inv.pctCdi + '% CDI' +
+    '<br>Saldo principal atual: <strong>' + fmt(c.principalAtual) + '</strong>' +
+    ' &nbsp;·&nbsp; Bruto atual: <strong>' + fmt(c.grossNow) + '</strong>' +
+    ' &nbsp;·&nbsp; Líquido atual: <strong>' + fmt(c.netNow) + '</strong>';
+}
+
+
+// ─── BENCHMARKS — IPCA e Poupança ────────────────────────────────────────────
+// IPCA mensal histórico (% ao mês) — IBGE
+const IPCA_MONTHLY = {
+  '2025-01':0.16,'2025-02':1.31,'2025-03':1.32,'2025-04':0.43,'2025-05':0.43,
+  '2025-06':0.24,'2025-07':0.38,'2025-08':0.44,'2025-09':0.44,'2025-10':0.56,
+  '2025-11':0.39,'2025-12':0.52,'2026-01':0.16,'2026-02':1.31
+};
+
+// Poupança mensal: 70% da Selic quando Selic > 8.5% (regra vigente desde 2012)
+function getPoupancaMonthly(monthStr) {
+  // Get Selic for that month and convert to monthly rate
+  const [yr, mo] = monthStr.split('-').map(Number);
+  const midDate = `${yr}-${String(mo).padStart(2,'0')}-15`;
+  const selicAnual = getSelicForDate(midDate);
+  // Poupança = 70% Selic / 12 (simplified monthly approximation)
+  return (selicAnual * 0.70) / 12;
+}
+
+function getIPCA(monthStr) {
+  return IPCA_MONTHLY[monthStr] || null;
+}
+
+// ── Gráfico de rentabilidade mensal ──────────────────────────────────────────
+function updateMonthlyPctChart() {
+  if (!chartMonthlyPct) return;
+  const months = getLast12Months();
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  const portfolioMonthlyPct = months.map(m => {
+    const [yr, mo] = m.split('-').map(Number);
+    const firstOfMonth = m + '-01';
+    const nextMo = mo === 12 ? `${yr+1}-01-01` : `${yr}-${String(mo+1).padStart(2,'0')}-01`;
+    const effectiveEnd = m === new Date().toISOString().slice(0,7) ? todayStr : nextMo;
+    let monthYield = 0, monthBase = 0;
+    investments.forEach(inv => {
+      if (inv.start >= effectiveEnd || inv.end <= firstOfMonth) return;
+      const calcStart = inv.start > firstOfMonth ? inv.start : firstOfMonth;
+      const calcEnd   = inv.end   < effectiveEnd ? inv.end   : effectiveEnd;
+      const principal = calcCDBCached(inv).principalAtual;
+      const g1 = calcGross(principal, inv.pctCdi, inv.start, calcStart);
+      const g2 = calcGross(principal, inv.pctCdi, inv.start, calcEnd);
+      monthYield += Math.max(0, g2 - g1);
+      monthBase  += g1;
+    });
+    return monthBase > 0 ? (monthYield / monthBase) * 100 : null;
+  });
+
+  const cdiMonthlyPct = months.map(m => {
+    const [yr, mo] = m.split('-').map(Number);
+    const firstOfMonth = m + '-01';
+    const nextMo = mo === 12 ? `${yr+1}-01-01` : `${yr}-${String(mo+1).padStart(2,'0')}-01`;
+    const effectiveEnd = m === new Date().toISOString().slice(0,7) ? todayStr : nextMo;
+    let factor = 1;
+    let cur = new Date(firstOfMonth + 'T12:00:00');
+    const end = new Date(effectiveEnd + 'T12:00:00');
+    while (cur < end) {
+      const ds = cur.toISOString().slice(0,10);
+      if (isBusinessDayBCB(ds)) factor *= (1 + getCDIForDate(ds));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return (factor - 1) * 100;
+  });
+
+  const poupancaMonthlyPct = months.map(m => getPoupancaMonthly(m));
+  const labels = months.map(m => { const [y,mo] = m.split('-'); return monthName(parseInt(mo)) + '/' + y.slice(2); });
+
+  chartMonthlyPct.data.labels = labels;
+  chartMonthlyPct.data.datasets = [
+    { label: 'Sua carteira', data: portfolioMonthlyPct, borderColor: '#00e5b0', backgroundColor: 'rgba(0,229,176,0.1)', tension: 0.3, pointRadius: 4, fill: false },
+    { label: 'CDI',          data: cdiMonthlyPct,       borderColor: '#0088ff', backgroundColor: 'transparent', tension: 0.3, pointRadius: 3, borderDash: [4,3], fill: false },
+    { label: 'Poupança',     data: poupancaMonthlyPct,  borderColor: '#f5a623', backgroundColor: 'transparent', tension: 0.3, pointRadius: 3, borderDash: [2,4], fill: false }
+  ];
+  chartMonthlyPct.update();
+}
+
+// ── Comparativo Anualizado ────────────────────────────────────────────────────
+function renderComparativoAnualizado() {
+  const benchEl = document.getElementById('benchmark-display');
+  if (!benchEl) return;
+
+  try {
+    // Calcular retorno anualizado da carteira
+    let totalOriginal = 0, totalNet = 0, weightedDays = 0;
+    investments.forEach(inv => {
+      try {
+        const c = calcCDB(inv);
+        if (!isFinite(c.netNow) || !isFinite(c.daysPassed)) return;
+        totalOriginal += (inv.value || 0);
+        totalNet      += (c.netNow || 0);
+        weightedDays  += (c.daysPassed || 0) * (inv.value || 0);
+      } catch(e) {}
+    });
+
+    const avgDays = (totalOriginal > 0 && weightedDays > 0) ? weightedDays / totalOriginal : 365;
+    const totalReturn = totalOriginal > 0 ? (totalNet / totalOriginal - 1) : 0;
+    const annualizedReturn = (isFinite(totalReturn) && avgDays > 0)
+      ? (Math.pow(1 + totalReturn, 365 / avgDays) - 1) * 100
+      : 0;
+
+    // CDI atual
+    const cdiAnnual = getCDI();
+
+    // Poupança: 70% Selic a.a. (simplificado)
+    const selicAtual = getSelicForDate(new Date().toISOString().slice(0, 10)) || cdiAnnual;
+    const poupAnnual = selicAtual * 0.70;
+
+    // IPCA últimos 12 meses
+    const ipcaMonths = Object.keys(IPCA_MONTHLY).sort().slice(-12);
+    const ipcaAnnualPct = ipcaMonths.length > 0
+      ? (ipcaMonths.reduce((acc, m) => acc * (1 + (IPCA_MONTHLY[m] || 0) / 100), 1) - 1) * 100
+      : 0;
+
+    const fmt2 = v => (isFinite(v) ? v.toFixed(2).replace('.', ',') : '—');
+
+    const items = [
+      { label: 'Sua carteira (líq.)', value: annualizedReturn, color: 'var(--accent)',  bold: true,  prefix: '' },
+      { label: 'CDI (bruto)',         value: cdiAnnual,         color: 'var(--accent2)', bold: false, prefix: '' },
+      { label: 'Poupança',            value: poupAnnual,        color: 'var(--gold)',    bold: false, prefix: '' },
+      { label: 'IPCA (12m)',          value: ipcaAnnualPct,     color: 'var(--text2)',   bold: false, prefix: '' },
+      { label: 'Carteira vs IPCA',
+        value: annualizedReturn - ipcaAnnualPct,
+        color: (annualizedReturn >= ipcaAnnualPct) ? 'var(--accent)' : 'var(--danger)',
+        bold: false,
+        prefix: (annualizedReturn >= ipcaAnnualPct) ? '+' : '' },
+    ];
+
+    benchEl.innerHTML = items.map(item => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:13px;color:var(--text2);${item.bold ? 'font-weight:600;' : ''}">${item.label}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:${item.bold ? '700' : '500'};color:${item.color};">
+          ${item.prefix}${fmt2(item.value)}% a.a.
+        </span>
+      </div>`).join('') +
+      `<div style="margin-top:12px;padding:10px 14px;background:rgba(0,229,176,0.06);border-radius:var(--radius-sm);font-size:11px;color:var(--text3);">
+        Rentabilidade líquida anualizada estimada com base no período médio ponderado dos investimentos.
+      </div>`;
+
+  } catch(e) {
+    console.error('renderComparativoAnualizado falhou:', e);
+    benchEl.innerHTML = `<div style="color:var(--text3);font-size:13px;padding:20px 0;">Erro ao calcular comparativo: ${e.message}</div>`;
+  }
+}
+
+function updateBenchmarkCharts() {
+  updateMonthlyPctChart();
+  renderComparativoAnualizado();
+}
+
+
+// ─── PLANEJAMENTO ─────────────────────────────────────────────────────────────
+
+function savePlanningGoal() {
+  const val  = getMoneyValue(document.getElementById('goal-value'));
+  const name = document.getElementById('goal-name').value.trim();
+  localStorage.setItem('cdb_goal', JSON.stringify({ value: val, name }));
+}
+
+function loadPlanningGoal() {
+  try {
+    const g = JSON.parse(localStorage.getItem('cdb_goal') || '{}');
+    if (g.value) {
+      setMoneyValue(document.getElementById('goal-value'), g.value);
+      document.getElementById('goal-name').value = g.name || '';
+    }
+  } catch(e) {}
+}
+
+function renderPlanningPage() {
+  loadPlanningGoal();
+  renderGoalProgress();
+  renderReinvestmentProjection();
+}
+
+function renderGoalProgress() {
+  const goalValue = getMoneyValue(document.getElementById('goal-value'));
+  const emptyEl   = document.getElementById('goal-empty');
+  const progEl    = document.getElementById('goal-progress-section');
+
+  if (!goalValue || goalValue <= 0) {
+    emptyEl.style.display = 'block';
+    progEl.style.display  = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  progEl.style.display  = 'block';
+
+  // Current net patrimony
+  let currentNet = 0;
+  investments.forEach(inv => { currentNet += calcCDB(inv).netNow; });
+
+  const pct = Math.min(100, (currentNet / goalValue) * 100);
+  const remaining = Math.max(0, goalValue - currentNet);
+
+  document.getElementById('goal-pct-label').textContent  = pct.toFixed(1) + '%';
+  document.getElementById('goal-remaining').textContent  = fmt(remaining);
+  document.getElementById('goal-progress-bar').style.width = pct + '%';
+  document.getElementById('goal-current').textContent    = fmt(currentNet);
+
+  // Estimate date to reach goal
+  // Use current daily yield rate
+  const cdiDaily = Math.pow(1 + getCDI() / 100, 1/252) - 1;
+  let weightedDailyRate = 0, totalPrincipal = 0;
+  investments.forEach(inv => {
+    const c = calcCDB(inv);
+    if (c.principalAtual > 0) {
+      const rate = cdiDaily * inv.pctCdi / 100;
+      const irFactor = 1 - getIRRate(inv.type, 365); // approx with 1yr IR
+      weightedDailyRate += rate * irFactor * c.principalAtual;
+      totalPrincipal    += c.principalAtual;
+    }
+  });
+  const avgNetDailyRate = totalPrincipal > 0 ? weightedDailyRate / totalPrincipal : 0;
+
+  if (pct >= 100) {
+    document.getElementById('goal-date').textContent     = 'Meta atingida! 🎉';
+    document.getElementById('goal-days-left').textContent = '';
+    document.getElementById('goal-message').textContent  = 'Parabéns! Seu patrimônio líquido já atingiu ou superou a meta definida.';
+    document.getElementById('goal-message').style.color  = 'var(--accent)';
+  } else if (avgNetDailyRate > 0) {
+    // FV = PV * (1+r)^n => n = log(FV/PV) / log(1+r)
+    const daysToGoal = Math.log(goalValue / currentNet) / Math.log(1 + avgNetDailyRate);
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + Math.round(daysToGoal));
+    const yearsLeft = (daysToGoal / 365).toFixed(1);
+    document.getElementById('goal-date').textContent     = targetDate.toLocaleDateString('pt-BR', { month:'long', year:'numeric' });
+    document.getElementById('goal-days-left').textContent = 'em ~' + yearsLeft + ' anos (' + Math.round(daysToGoal) + ' dias)';
+    document.getElementById('goal-message').innerHTML =
+      'Com os rendimentos líquidos atuais de <strong>' + fmt(totalPrincipal * avgNetDailyRate) + '/dia</strong>, ' +
+      'você deve atingir sua meta em <strong>' + targetDate.toLocaleDateString('pt-BR', {month:'long',year:'numeric'}) + '</strong>. ' +
+      'Aportes adicionais ou reinvestimentos podem antecipar essa data.';
+    document.getElementById('goal-message').style.color = 'var(--text2)';
+  } else {
+    document.getElementById('goal-date').textContent      = '—';
+    document.getElementById('goal-days-left').textContent = '';
+    document.getElementById('goal-message').textContent   = 'Adicione investimentos para calcular a projeção.';
+  }
+}
+
+function renderReinvestmentProjection() {
+  const years  = parseInt(document.getElementById('proj-years').value) || 5;
+  const aporte = getMoneyValue(document.getElementById('proj-aporte')) || 0;
+  const el     = document.getElementById('proj-result');
+
+  if (investments.length === 0) {
+    el.innerHTML = '<div style="color:var(--text3);text-align:center;padding:20px;">Adicione investimentos para ver a projeção.</div>';
+    return;
+  }
+
+  // Current portfolio stats
+  let currentNet = 0, totalPrincipal = 0;
+  let weightedPctCdi = 0;
+  investments.forEach(inv => {
+    const c = calcCDB(inv);
+    currentNet      += c.netNow;
+    totalPrincipal  += c.principalAtual;
+    weightedPctCdi  += inv.pctCdi * c.principalAtual;
+  });
+  const avgPctCdi = totalPrincipal > 0 ? weightedPctCdi / totalPrincipal : 107;
+
+  // Annual net CDI rate (after IR 15% - assuming long term)
+  const cdiAnnual = getCDI() / 100;
+  const grossAnnual = cdiAnnual * avgPctCdi / 100;
+  const netAnnual = grossAnnual * (1 - 0.15); // 15% IR for long term (>720 days)
+
+  // Project year by year with monthly compounding + aporte
+  const monthlyRate = Math.pow(1 + netAnnual, 1/12) - 1;
+  const rows = [];
+  let patrimony = currentNet;
+
+  for (let y = 1; y <= years; y++) {
+    const startVal = patrimony;
+    for (let m = 0; m < 12; m++) {
+      patrimony = patrimony * (1 + monthlyRate) + aporte;
+    }
+    const yield_y = patrimony - startVal - aporte * 12;
+    rows.push({ year: y, value: patrimony, yield: yield_y, aporte: aporte * 12 });
+  }
+
+  const totalAportes = aporte * 12 * years;
+  const totalGrowth  = rows[rows.length-1].value - currentNet - totalAportes;
+
+  el.innerHTML = `
+    <div class="grid-2" style="gap:12px;margin-bottom:20px;">
+      <div style="background:rgba(0,229,176,0.07);border:1px solid rgba(0,229,176,0.2);border-radius:var(--radius-sm);padding:16px;text-align:center;">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Patrimônio em ${years} anos</div>
+        <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--accent);">${fmt(rows[rows.length-1].value)}</div>
+      </div>
+      <div style="background:rgba(0,136,255,0.07);border:1px solid rgba(0,136,255,0.2);border-radius:var(--radius-sm);padding:16px;text-align:center;">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Crescimento pelos juros</div>
+        <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--accent2);">+${fmt(totalGrowth)}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">
+      Projeção com CDI médio ponderado de ${(avgPctCdi).toFixed(0)}% do CDI atual (${getCDI().toFixed(2)}% a.a.) · IR 15% (longo prazo) · ${aporte > 0 ? 'Aporte mensal: ' + fmt(aporte) : 'Sem aportes mensais'}
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Ano</th><th>Patrimônio</th><th>Rendimento do ano</th>${aporte > 0 ? '<th>Aportes do ano</th>' : ''}<th>Crescimento total</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `<tr>
+            <td style="font-weight:600;">Ano ${r.year}</td>
+            <td class="td-mono" style="color:var(--accent);font-weight:600;">${fmt(r.value)}</td>
+            <td class="td-mono" style="color:var(--accent2);">+${fmt(r.yield)}</td>
+            ${aporte > 0 ? `<td class="td-mono" style="color:var(--text2);">+${fmt(r.aporte)}</td>` : ''}
+            <td class="td-mono" style="color:var(--text3);">+${((r.value / currentNet - 1)*100).toFixed(1)}%</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById('login-screen').classList.remove('hidden');
+}
+
+async function onLoginSuccess() {
+  document.getElementById('login-screen').classList.add('hidden');
+  applyTheme();
+  initSelicFromHistory();
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('f-start').value = today;
+  if (!chartEvolution) initCharts();
+  const el = document.getElementById('user-email-display');
+  if (el && _currentUser) el.textContent = _currentUser.email;
+  if (typeof updateUserUI === 'function') updateUserUI();
+  goPage('dashboard');
+  renderAll();
+  loadAllData().then(() => {
+    renderAll();
+    loadCDIFromBCB()
+      .then(ok => { if (ok) { buildCumulativeCDI(); renderAll(); } })
+      .catch(() => {});
+  }).catch(e => console.warn('loadAllData error:', e));
+}
+
+function togglePassVisibility() {
+  const inp = document.getElementById('login-pass');
+  const icon = document.getElementById('pass-eye-icon');
+  if (!inp) return;
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  } else {
+    inp.type = 'password';
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-err');
+  const spin  = document.getElementById('login-spin');
+  const btn   = document.getElementById('login-btn');
+  errEl.style.display = 'none';
+  if (!email || !pass) { errEl.textContent = 'Preencha e-mail e senha.'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; spin.style.display = 'block';
+  try {
+    const res = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    btn.disabled = false; spin.style.display = 'none';
+    // Safely parse response
+    let data = {};
+    try { data = await res.json(); } catch(jsonErr) {
+      const raw = await res.text().catch(() => 'sem resposta');
+      errEl.textContent = 'Erro do servidor: ' + raw.slice(0, 100);
+      errEl.style.display = 'block';
+      return;
+    }
+    if (!res.ok || data.error) {
+      const msgs = { 'Invalid login credentials': 'E-mail ou senha incorretos.', 'Email not confirmed': 'Confirme seu e-mail.' };
+      errEl.textContent = msgs[data.error_description] || data.error_description || data.error || 'Erro ao fazer login (status ' + res.status + ')';
+      errEl.style.display = 'block';
+      return;
+    }
+    // Save session
+    const sess = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      user_id: data.user.id,
+      email: data.user.email,
+      expires_at: Date.now() + (data.expires_in || 3600) * 1000
+    };
+    localStorage.setItem('cdb_auth_token', JSON.stringify(sess));
+    _currentUser = { id: data.user.id, email: data.user.email, access_token: data.access_token };
+    await onLoginSuccess();
+  } catch(e) {
+    btn.disabled = false; spin.style.display = 'none';
+    errEl.textContent = 'Erro de conexão: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+async function doLogout() {
+  if (!confirm('Sair do app?')) return;
+  localStorage.removeItem('cdb_auth_token');
+  _currentUser = null;
+  investments = [];
+  showLogin();
+}
+
+// ── SIMULADOR → NOVO CDB ─────────────────────────────────────────────────────
+function simToNewCDB() {
+  const value  = getMoneyValue(document.getElementById('sim-value')) || 0;
+  const pctCdi = parseFloat(document.getElementById('sim-pct-cdi').value) || 100;
+  goPage('investments');
+  setTimeout(() => {
+    openModal();
+    // Pré-preencher com os valores do simulador
+    setTimeout(() => {
+      if (value > 0) setMoneyValue(document.getElementById('f-value'), value);
+      const pctEl = document.getElementById('f-pct-cdi');
+      if (pctEl) pctEl.value = Math.round(pctCdi).toLocaleString('pt-BR') + '%';
+    }, 100);
+  }, 150);
+}
+
+// ── TOPBAR CONTEXT INFO ──────────────────────────────────────────────────────
+function updateTopbarContext(id) {
+  const ctx = document.getElementById('topbar-context');
+  if (!ctx) return;
+  if (id === 'investments') {
+    const n = investments.length;
+    ctx.innerHTML = n > 0
+      ? `<span style="font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px 10px;">${n} ativo${n!==1?'s':''}</span>`
+      : '';
+  } else if (id === 'reports') {
+    ctx.innerHTML = '<span style="font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px 10px;">últimos 12 meses</span>';
+  } else {
+    ctx.innerHTML = '';
+  }
+}
+
+// ─── USER MENU DROPDOWN ────────────────────────────────────────────────────────
+function toggleUserDropdown() {
+  const btn = document.getElementById('user-avatar-btn');
+  const dd  = document.getElementById('user-dropdown');
+  const isOpen = dd.classList.contains('open');
+  if (isOpen) { closeUserDropdown(); } else { btn.classList.add('open'); dd.classList.add('open'); }
+}
+function closeUserDropdown() {
+  document.getElementById('user-avatar-btn').classList.remove('open');
+  document.getElementById('user-dropdown').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('user-menu-wrap');
+  if (wrap && !wrap.contains(e.target)) closeUserDropdown();
+});
+
+// ─── PROFILE HELPERS ───────────────────────────────────────────────────────────
+function _getDisplayName() {
+  if (!_currentUser) return '';
+  return _currentUser.user_metadata?.display_name || _currentUser.user_metadata?.name || _currentUser.email?.split('@')[0] || 'Usuário';
+}
+function _getAvatarUrl() {
+  return _currentUser?.user_metadata?.avatar_url || null;
+}
+function _getInitial() {
+  const name = _getDisplayName();
+  return name ? name[0].toUpperCase() : '?';
+}
+function _setAvatarImg(el, initialEl, url, initial) {
+  if (!el) return;
+  if (url) {
+    initialEl.style.display = 'none';
+    let img = el.querySelector('img');
+    if (!img) { img = document.createElement('img'); el.appendChild(img); }
+    img.src = url;
+  } else {
+    initialEl.style.display = '';
+    initialEl.textContent = initial;
+    const img = el.querySelector('img');
+    if (img) img.remove();
+  }
+}
+function updateUserUI() {
+  if (!_currentUser) return;
+  const name    = _getDisplayName();
+  const email   = _currentUser.email || '';
+  const initial = _getInitial();
+  const avatar  = _getAvatarUrl();
+
+  // Topbar
+  const tn = document.getElementById('topbar-name');
+  const te = document.getElementById('topbar-email');
+  if (tn) tn.textContent = name;
+  if (te) te.textContent = email;
+  _setAvatarImg(document.getElementById('topbar-avatar'), document.getElementById('topbar-avatar-initial'), avatar, initial);
+
+  // Dropdown header
+  const dn = document.getElementById('dropdown-name');
+  const dm = document.getElementById('dropdown-email');
+  if (dn) dn.textContent = name;
+  if (dm) dm.textContent = email;
+  _setAvatarImg(document.getElementById('dropdown-avatar'), document.getElementById('dropdown-avatar-initial'), avatar, initial);
+
+  // Profile modal
+  _setAvatarImg(document.getElementById('profile-avatar-big'), document.getElementById('profile-avatar-initial'), avatar, initial);
+  const ni = document.getElementById('profile-name-input');
+  const ei = document.getElementById('profile-email-input');
+  if (ni) ni.value = _currentUser.user_metadata?.display_name || _currentUser.user_metadata?.name || '';
+  if (ei) ei.value = email;
+}
+
+// ─── PROFILE MODAL ─────────────────────────────────────────────────────────────
+function openProfileModal(section) {
+  updateUserUI();
+  document.getElementById('profile-modal').classList.add('open');
+  document.getElementById('profile-info-msg').className = 'profile-msg';
+  document.getElementById('profile-pass-msg').className = 'profile-msg';
+  if (section === 'senha') {
+    setTimeout(() => document.getElementById('profile-senha-anchor')?.scrollIntoView({ behavior: 'smooth' }), 120);
+  }
+}
+function closeProfileModal() { document.getElementById('profile-modal').classList.remove('open'); }
+function closeProfileModalOutside(e) { if (e.target.id === 'profile-modal') closeProfileModal(); }
+
+async function saveProfileInfo() {
+  const name = document.getElementById('profile-name-input').value.trim();
+  const btn  = document.getElementById('profile-save-btn');
+  const msg  = document.getElementById('profile-info-msg');
+  msg.className = 'profile-msg';
+  if (!name) { msg.textContent = 'Informe um nome de exibição.'; msg.className = 'profile-msg error'; return; }
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  const res_u = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/auth/v1/user', { method: 'PUT', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM', 'Authorization': 'Bearer ' + (_currentUser&&_currentUser.access_token||''), 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { display_name: name } }) }); const error = res_u.ok ? null : await res_u.json();
+  btn.disabled = false; btn.textContent = 'Salvar alterações';
+  if (error) { msg.textContent = 'Erro: ' + error.message; msg.className = 'profile-msg error'; }
+  else {
+    _currentUser.user_metadata = { ..._currentUser.user_metadata, display_name: name };
+    updateUserUI();
+    msg.textContent = '✓ Perfil atualizado com sucesso!'; msg.className = 'profile-msg success';
+  }
+}
+
+async function saveProfilePassword() {
+  const np  = document.getElementById('profile-new-pass').value;
+  const cp  = document.getElementById('profile-confirm-pass').value;
+  const btn = document.getElementById('profile-pass-btn');
+  const msg = document.getElementById('profile-pass-msg');
+  msg.className = 'profile-msg';
+  if (!np) { msg.textContent = 'Informe a nova senha.'; msg.className = 'profile-msg error'; return; }
+  if (np.length < 6) { msg.textContent = 'A senha precisa ter no mínimo 6 caracteres.'; msg.className = 'profile-msg error'; return; }
+  if (np !== cp) { msg.textContent = 'As senhas não coincidem.'; msg.className = 'profile-msg error'; return; }
+  btn.disabled = true; btn.textContent = 'Atualizando...';
+  const res_p = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/auth/v1/user', { method: 'PUT', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM', 'Authorization': 'Bearer ' + (_currentUser&&_currentUser.access_token||''), 'Content-Type': 'application/json' }, body: JSON.stringify({ password: np }) }); const error = res_p.ok ? null : await res_p.json();
+  btn.disabled = false; btn.textContent = 'Atualizar senha';
+  if (error) { msg.textContent = 'Erro: ' + error.message; msg.className = 'profile-msg error'; }
+  else {
+    document.getElementById('profile-new-pass').value = '';
+    document.getElementById('profile-confirm-pass').value = '';
+    msg.textContent = '✓ Senha alterada com sucesso!'; msg.className = 'profile-msg success';
+  }
+}
+
+async function handleProfilePhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { alert('Foto muito grande. Máximo 2MB.'); return; }
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const dataUrl = e.target.result;
+    // Store in user_metadata as data URL (small enough for Supabase)
+    const res_a = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/auth/v1/user', { method: 'PUT', headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM', 'Authorization': 'Bearer ' + (_currentUser&&_currentUser.access_token||''), 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { avatar_url: dataUrl } }) }); const error = res_a.ok ? null : await res_a.json();
+    if (error) { alert('Erro ao salvar foto: ' + error.message); return; }
+    _currentUser.user_metadata = { ..._currentUser.user_metadata, avatar_url: dataUrl };
+    updateUserUI();
+  };
+  reader.readAsDataURL(file);
+}
+
+
+async function loadAllData() {
+  if (!_currentUser) return;
+  const uid = _currentUser.id;
+  try {
+    const invData = await sbGet('investments', 'select=*&user_id=eq.' + uid + '&order=start_date');
+    if (Array.isArray(invData) && invData.length > 0) {
+      investments = invData.map(r => ({
+        id: r.id, name: r.name, value: parseFloat(r.value),
+        pctCdi: parseFloat(r.pct_cdi), start: r.start_date,
+        end: r.end_date, liquidity: r.liquidity, type: r.type,
+        resgates: r.resgates ? (typeof r.resgates === 'string' ? JSON.parse(r.resgates) : r.resgates) : []
+      }));
+      localStorage.setItem('cdb_investments', JSON.stringify(investments));
+    } else {
+      investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
+    }
+  } catch(e) {
+    investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
+  }
+  try {
+    const selicData = await sbGet('selic_custom', 'select=*&user_id=eq.' + uid + '&order=date');
+    if (Array.isArray(selicData)) {
+      window._selicCustom = selicData.map(r => ({ date: r.date, selic: parseFloat(r.selic) }));
+    }
+  } catch(e) {}
+  updateSelicDisplay();
+}
+
+async function saveData() {
+  localStorage.setItem('cdb_investments', JSON.stringify(investments));
+  if (!_currentUser) return;
+  const rows = investments.map(inv => ({
+    id: inv.id, user_id: _currentUser.id,
+    name: inv.name, value: inv.value, pct_cdi: inv.pctCdi,
+    start_date: inv.start, end_date: inv.end,
+    liquidity: inv.liquidity, type: inv.type,
+    resgates: JSON.stringify(inv.resgates || [])
+  }));
+  if (rows.length > 0) await sbUpsert('investments', rows);
+}
+
+async function saveInvestment() {
+  const name      = document.getElementById('f-name').value.trim();
+  const value     = getMoneyValue(document.getElementById('f-value'));
+  const pctCdi    = parseFloat(document.getElementById('f-pct-cdi').value);
+  const start     = document.getElementById('f-start').value;
+  const end       = document.getElementById('f-end').value;
+  const liquidity = document.getElementById('f-liquidity').value;
+  const type      = document.getElementById('f-type').value;
+  if (!name || !value || !pctCdi || !start || !end) { alert('Preencha todos os campos!'); return; }
+  const id  = editingId || Date.now().toString();
+  const inv = { id, name, value, pctCdi, start, end, liquidity, type,
+                resgates: editingId ? (investments.find(i=>i.id===editingId)||{}).resgates||[] : [] };
+  if (editingId) { investments[investments.findIndex(i=>i.id===editingId)] = inv; }
+  else { investments.push(inv); }
+  if (_currentUser) {
+    const row = { id, user_id: _currentUser.id, name, value, pct_cdi: pctCdi,
+                  start_date: start, end_date: end, liquidity, type,
+                  resgates: JSON.stringify(inv.resgates) };
+    await sbUpsert('investments', row);
+  }
+  localStorage.setItem('cdb_investments', JSON.stringify(investments));
+  renderAll(); closeModal();
+}
+
+async function deleteInvestment(id) {
+  if (!confirm('Excluir este investimento?')) return;
+  investments = investments.filter(i => i.id !== id);
+  localStorage.setItem('cdb_investments', JSON.stringify(investments));
+  if (_currentUser) await sbDelete('investments', 'id=eq.' + id + '&user_id=eq.' + _currentUser.id);
+  renderAll();
+}
+
+// Selic custom sync
+async function syncSelicToDb() {
+  if (!_currentUser) return;
+  const custom = window._selicCustom || [];
+  localStorage.setItem('cdb_selic_custom', JSON.stringify(custom));
+  await sbDelete('selic_custom', 'user_id=eq.' + _currentUser.id);
+  if (custom.length > 0) {
+    await sbUpsert('selic_custom', custom.map(e => ({
+      user_id: _currentUser.id, date: e.date, selic: e.selic
+    })));
+  }
+}
+
+// Restore data
+async function restoreData(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const list = data.investments || data;
+      if (!Array.isArray(list)) throw new Error('Formato inválido');
+      if (!confirm('Restaurar ' + list.length + ' investimento(s)? Os dados atuais serão substituídos.')) return;
+      investments = list.map(inv => ({
+        id: inv.id || Date.now().toString(), name: inv.name,
+        value: inv.value, pctCdi: inv.pctCdi, start: inv.start,
+        end: inv.end, liquidity: inv.liquidity || 'diaria',
+        type: inv.type || 'CDB', resgates: inv.resgates || []
+      }));
+      localStorage.setItem('cdb_investments', JSON.stringify(investments));
+      if (_currentUser) {
+        await sbDelete('investments', 'user_id=eq.' + _currentUser.id);
+        await sbUpsert('investments', investments.map(inv => ({
+          id: inv.id, user_id: _currentUser.id, name: inv.name,
+          value: inv.value, pct_cdi: inv.pctCdi, start_date: inv.start,
+          end_date: inv.end, liquidity: inv.liquidity, type: inv.type,
+          resgates: JSON.stringify(inv.resgates || [])
+        })));
+      }
+      renderAll();
+      alert('Dados restaurados com sucesso!');
+    } catch(err) { alert('Erro: ' + err.message); }
+  };
+  reader.readAsText(file); event.target.value = '';
+}
+
+
+async function refreshBCB() {
+  localStorage.removeItem('cdb_cdi_cache_date');
+  localStorage.removeItem('cdb_cdi_cache_version');
+  const ok = await loadCDIFromBCB();
+  if (ok) { buildCumulativeCDI(); renderAll(); alert('Taxas CDI atualizadas! ' + Object.keys(_cdiDailyCache).length + ' dias carregados.'); }
+}
+
+function showSyncStatus(state, msg) {
+  let el = document.getElementById('sync-status');
+  if (!el) { el = document.createElement('div'); el.id='sync-status'; el.style.cssText='position:fixed;bottom:16px;right:16px;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:500;z-index:9999;transition:all 0.3s;font-family:Instrument Sans,sans-serif;'; document.body.appendChild(el); }
+  if (state==='sync') { el.style.cssText+=';background:rgba(0,136,255,0.9);color:#fff;opacity:1;'; el.textContent='⟳ Carregando BCB...'; }
+  else if (state==='ok') { el.style.cssText+=';background:rgba(0,229,176,0.9);color:#000;opacity:1;'; el.textContent='✓ BCB carregado'; setTimeout(()=>{el.style.opacity='0';},3000); }
+  else { el.style.cssText+=';background:rgba(255,71,87,0.9);color:#fff;opacity:1;'; el.textContent='⚠ '+( msg||'erro'); setTimeout(()=>{el.style.opacity='0';},5000); }
+}
+
+function getAuthHeaders() {
+  const token = _currentUser && _currentUser.access_token ? _currentUser.access_token : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM';
+  return {
+    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM',
+    'Authorization': 'Bearer ' + token,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=minimal'
+  };
+}
+
+async function sbGet(table, query) {
+  const res = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/rest/v1/' + table + '?' + query, {
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+async function sbUpsert(table, data) {
+  const res = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/rest/v1/' + table, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(data)
+  });
+  return res.ok;
+}
+
+async function sbDelete(table, query) {
+  const res = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/rest/v1/' + table + '?' + query, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  return res.ok;
+}
+
+function fmt(v) { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0); }
+function fmtShort(v) { if (v>=1e6) return (v/1e6).toFixed(1)+'M'; if (v>=1e3) return (v/1e3).toFixed(0)+'k'; return v.toFixed(0); }
+function fmtDate(d) { if (!d) return '—'; const [y,m,dd] = d.split('-'); return `${dd}/${m}/${y}`; }
+function monthName(m) { return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][m-1]; }
+function getLast12Months() {
+  const months = [];
+  const d = new Date(); d.setDate(1);
+  for (let i = 11; i >= 0; i--) { const x = new Date(d); x.setMonth(d.getMonth()-i); months.push(x.toISOString().slice(0,7)); }
+  return months;
+}
+function getNext12Months() {
+  const months = [];
+  const d = new Date(); d.setDate(1);
+  for (let i = 0; i < 12; i++) { const x = new Date(d); x.setMonth(d.getMonth()+i); months.push(x.toISOString().slice(0,7)); }
+  return months;
+}
+</script>
+</body>
+</html>
