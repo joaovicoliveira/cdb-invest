@@ -6,6 +6,7 @@
 <title>CDB Invest v2.1 — Controle de Investimentos</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --bg: #0a0d14;
@@ -1346,6 +1347,7 @@
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 const DB_URL = 'https://nhxgphqybemziwwztwmc.supabase.co';
 const DB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM';
+const _sb = supabase.createClient(DB_URL, DB_KEY);
 
 
 
@@ -3285,36 +3287,23 @@ async function doLogin() {
   if (!email || !pass) { errEl.textContent = 'Preencha e-mail e senha.'; errEl.style.display = 'block'; return; }
   btn.disabled = true; spin.style.display = 'block';
   try {
-    const res = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM' },
-      body: JSON.stringify({ email, password: pass })
-    });
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password: pass });
     btn.disabled = false; spin.style.display = 'none';
-    // Safely parse response
-    let data = {};
-    try { data = await res.json(); } catch(jsonErr) {
-      const raw = await res.text().catch(() => 'sem resposta');
-      errEl.textContent = 'Erro do servidor: ' + raw.slice(0, 100);
-      errEl.style.display = 'block';
-      return;
-    }
-    if (!res.ok || data.error) {
+    if (error) {
       const msgs = { 'Invalid login credentials': 'E-mail ou senha incorretos.', 'Email not confirmed': 'Confirme seu e-mail.' };
-      errEl.textContent = msgs[data.error_description] || data.error_description || data.error || 'Erro ao fazer login (status ' + res.status + ')';
+      errEl.textContent = msgs[error.message] || error.message || 'Erro ao fazer login';
       errEl.style.display = 'block';
       return;
     }
-    // Save session
     const sess = {
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
       user_id: data.user.id,
       email: data.user.email,
-      expires_at: Date.now() + (data.expires_in || 3600) * 1000
+      expires_at: Date.now() + (data.session.expires_in || 3600) * 1000
     };
     localStorage.setItem('cdb_auth_token', JSON.stringify(sess));
-    _currentUser = { id: data.user.id, email: data.user.email, access_token: data.access_token };
+    _currentUser = { id: data.user.id, email: data.user.email, access_token: data.session.access_token };
     await onLoginSuccess();
   } catch(e) {
     btn.disabled = false; spin.style.display = 'none';
@@ -3504,44 +3493,41 @@ async function handleProfilePhoto(event) {
 async function loadAllData() {
   if (!_currentUser) { console.warn('[loadAllData] sem usuario'); return; }
   const uid = _currentUser.id;
-  const token = _currentUser.access_token;
-  console.log('[loadAllData] uid:', uid, '| token ok:', !!token);
+  console.log('[loadAllData] uid:', uid);
   try {
-    // Chama diretamente para ver o status HTTP
-    const res = await fetch(DB_URL + '/rest/v1/investments?select=*&user_id=eq.' + uid + '&order=start_date', {
-      headers: {
-        'apikey': DB_KEY,
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json'
-      }
+    // Seta o token do usuario no cliente supabase
+    await _sb.auth.setSession({
+      access_token: _currentUser.access_token,
+      refresh_token: (JSON.parse(localStorage.getItem('cdb_auth_token') || '{}')).refresh_token || ''
     });
-    console.log('[loadAllData] investments status:', res.status);
-    if (!res.ok) {
-      const errText = await res.text();
-      console.warn('[loadAllData] investments error:', errText);
-      investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
+    const { data: invData, error: invError } = await _sb
+      .from('investments')
+      .select('*')
+      .eq('user_id', uid)
+      .order('start_date');
+    console.log('[loadAllData] investments:', invData?.length, invError?.message);
+    if (!invError && Array.isArray(invData) && invData.length > 0) {
+      investments = invData.map(r => ({
+        id: r.id, name: r.name, value: parseFloat(r.value),
+        pctCdi: parseFloat(r.pct_cdi), start: r.start_date,
+        end: r.end_date, liquidity: r.liquidity, type: r.type,
+        resgates: r.resgates ? (typeof r.resgates === 'string' ? JSON.parse(r.resgates) : r.resgates) : []
+      }));
+      localStorage.setItem('cdb_investments', JSON.stringify(investments));
     } else {
-      const invData = await res.json();
-      console.log('[loadAllData] investments recebidos:', invData.length);
-      if (Array.isArray(invData) && invData.length > 0) {
-        investments = invData.map(r => ({
-          id: r.id, name: r.name, value: parseFloat(r.value),
-          pctCdi: parseFloat(r.pct_cdi), start: r.start_date,
-          end: r.end_date, liquidity: r.liquidity, type: r.type,
-          resgates: r.resgates ? (typeof r.resgates === 'string' ? JSON.parse(r.resgates) : r.resgates) : []
-        }));
-        localStorage.setItem('cdb_investments', JSON.stringify(investments));
-      } else {
-        console.log('[loadAllData] banco vazio, usando localStorage');
-        investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
-      }
+      console.log('[loadAllData] usando localStorage');
+      investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
     }
   } catch(e) {
     console.warn('[loadAllData] excecao:', e);
     investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
   }
   try {
-    const selicData = await sbGet('selic_custom', 'select=*&user_id=eq.' + uid + '&order=date');
+    const { data: selicData } = await _sb
+      .from('selic_custom')
+      .select('*')
+      .eq('user_id', uid)
+      .order('date');
     if (Array.isArray(selicData)) {
       window._selicCustom = selicData.map(r => ({ date: r.date, selic: parseFloat(r.selic) }));
     }
@@ -3667,28 +3653,36 @@ function getAuthHeaders() {
 }
 
 async function sbGet(table, query) {
-  const res = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/rest/v1/' + table + '?' + query, {
-    headers: getAuthHeaders()
-  });
-  if (!res.ok) return [];
-  return res.json();
+  // Parse query string into filters for supabase client
+  const params = new URLSearchParams(query);
+  let q = _sb.from(table).select(params.get('select') || '*');
+  for (const [k, v] of params.entries()) {
+    if (k === 'select' || k === 'order') continue;
+    const match = k.match(/^(.+)$/);
+    if (v.startsWith('eq.')) q = q.eq(k, v.slice(3));
+  }
+  const orderParam = params.get('order');
+  if (orderParam) q = q.order(orderParam.split('.')[0], { ascending: !orderParam.includes('.desc') });
+  const { data, error } = await q;
+  if (error) { console.warn('[sbGet]', table, error.message); return []; }
+  return data || [];
 }
 
 async function sbUpsert(table, data) {
-  const res = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/rest/v1/' + table, {
-    method: 'POST',
-    headers: { ...getAuthHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(data)
-  });
-  return res.ok;
+  const { error } = await _sb.from(table).upsert(data, { onConflict: 'id' });
+  if (error) console.warn('[sbUpsert]', table, error.message);
+  return !error;
 }
 
 async function sbDelete(table, query) {
-  const res = await fetch('https://nhxgphqybemziwwztwmc.supabase.co/rest/v1/' + table + '?' + query, {
-    method: 'DELETE',
-    headers: getAuthHeaders()
-  });
-  return res.ok;
+  const params = new URLSearchParams(query);
+  let q = _sb.from(table).delete();
+  for (const [k, v] of params.entries()) {
+    if (v.startsWith('eq.')) q = q.eq(k, v.slice(3));
+  }
+  const { error } = await q;
+  if (error) console.warn('[sbDelete]', table, error.message);
+  return !error;
 }
 
 function fmt(v) { return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0); }
