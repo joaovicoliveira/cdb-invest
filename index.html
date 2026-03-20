@@ -3661,5 +3661,52 @@ function getNext12Months() {
   return months;
 }
 </script>
+
+<ul id="list"></ul>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"
+
+const supabaseUrl = "https://nhxgphqybemziwwztwmc.supabase.co"
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM"
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+async function loadInvestments() {
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) {
+    console.log("Usuário não logado")
+    return
+  }
+  const userId = userData.user.id
+  const { data, error } = await supabase
+    .from("investments")
+    .select("*")
+    .eq("user_id", userId)
+  if (error) {
+    console.log(error)
+    return
+  }
+  console.log("Investments:", data)
+  const list = document.getElementById("list")
+  list.innerHTML = ""
+  data.forEach(inv => {
+    const li = document.createElement("li")
+    li.textContent = inv.name + " - " + inv.amount
+    list.appendChild(li)
+  })
+}
+
+async function login(email, password) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) {
+    alert(error.message)
+    return
+  }
+  loadInvestments()
+}
+
+window.loadInvestments = loadInvestments
+window.login = login
+</script>
 </body>
 </html>
