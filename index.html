@@ -1624,19 +1624,46 @@ async function initAppAsync() {
     localStorage.removeItem('cdb_cdi_cache_date');
     localStorage.removeItem('cdb_cdi_cache_version');
   }
-  // Check stored session token
   const stored = localStorage.getItem('cdb_auth_token');
   if (stored) {
     try {
       const sess = JSON.parse(stored);
+      // Token ainda valido
       if (sess.expires_at && sess.expires_at > Date.now()) {
         _currentUser = { id: sess.user_id, email: sess.email, access_token: sess.access_token };
         await onLoginSuccess();
         return;
       }
-    } catch(e) { localStorage.removeItem('cdb_auth_token'); }
+      // Token expirado - tenta renovar com refresh_token
+      if (sess.refresh_token) {
+        try {
+          const res = await fetch(DB_URL + '/auth/v1/token?grant_type=refresh_token', {
+            method: 'POST',
+            headers: { 'apikey': DB_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: sess.refresh_token })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.access_token) {
+              const newSess = {
+                access_token: data.access_token,
+                refresh_token: data.refresh_token || sess.refresh_token,
+                user_id: data.user ? data.user.id : sess.user_id,
+                email: data.user ? data.user.email : sess.email,
+                expires_at: Date.now() + (data.expires_in || 3600) * 1000
+              };
+              localStorage.setItem('cdb_auth_token', JSON.stringify(newSess));
+              _currentUser = { id: newSess.user_id, email: newSess.email, access_token: newSess.access_token };
+              await onLoginSuccess();
+              return;
+            }
+          }
+        } catch(e) { console.warn('Token refresh error:', e); }
+      }
+    } catch(e) {}
+    localStorage.removeItem('cdb_auth_token');
   }
-  // No valid session - show login
+  // Sem sessao valida - mostra login
 }
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
@@ -3475,22 +3502,42 @@ async function handleProfilePhoto(event) {
 
 
 async function loadAllData() {
-  if (!_currentUser) return;
+  if (!_currentUser) { console.warn('[loadAllData] sem usuario'); return; }
   const uid = _currentUser.id;
+  const token = _currentUser.access_token;
+  console.log('[loadAllData] uid:', uid, '| token ok:', !!token);
   try {
-    const invData = await sbGet('investments', 'select=*&user_id=eq.' + uid + '&order=start_date');
-    if (Array.isArray(invData) && invData.length > 0) {
-      investments = invData.map(r => ({
-        id: r.id, name: r.name, value: parseFloat(r.value),
-        pctCdi: parseFloat(r.pct_cdi), start: r.start_date,
-        end: r.end_date, liquidity: r.liquidity, type: r.type,
-        resgates: r.resgates ? (typeof r.resgates === 'string' ? JSON.parse(r.resgates) : r.resgates) : []
-      }));
-      localStorage.setItem('cdb_investments', JSON.stringify(investments));
-    } else {
+    // Chama diretamente para ver o status HTTP
+    const res = await fetch(DB_URL + '/rest/v1/investments?select=*&user_id=eq.' + uid + '&order=start_date', {
+      headers: {
+        'apikey': DB_KEY,
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('[loadAllData] investments status:', res.status);
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn('[loadAllData] investments error:', errText);
       investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
+    } else {
+      const invData = await res.json();
+      console.log('[loadAllData] investments recebidos:', invData.length);
+      if (Array.isArray(invData) && invData.length > 0) {
+        investments = invData.map(r => ({
+          id: r.id, name: r.name, value: parseFloat(r.value),
+          pctCdi: parseFloat(r.pct_cdi), start: r.start_date,
+          end: r.end_date, liquidity: r.liquidity, type: r.type,
+          resgates: r.resgates ? (typeof r.resgates === 'string' ? JSON.parse(r.resgates) : r.resgates) : []
+        }));
+        localStorage.setItem('cdb_investments', JSON.stringify(investments));
+      } else {
+        console.log('[loadAllData] banco vazio, usando localStorage');
+        investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
+      }
     }
   } catch(e) {
+    console.warn('[loadAllData] excecao:', e);
     investments = JSON.parse(localStorage.getItem('cdb_investments') || '[]');
   }
   try {
@@ -3662,51 +3709,6 @@ function getNext12Months() {
 }
 </script>
 
-<ul id="list"></ul>
 
-<script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm"
-
-const supabaseUrl = "https://nhxgphqybemziwwztwmc.supabase.co"
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5oeGdwaHF5YmVteml3d3p0d21jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDg5NzIsImV4cCI6MjA4OTUyNDk3Mn0.TJfuzk4Yggx3D3cmr_JHEQyD_uGfYip31m0mO4PHJqM"
-const supabase = createClient(supabaseUrl, supabaseKey)
-
-async function loadInvestments() {
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError || !userData.user) {
-    console.log("Usuário não logado")
-    return
-  }
-  const userId = userData.user.id
-  const { data, error } = await supabase
-    .from("investments")
-    .select("*")
-    .eq("user_id", userId)
-  if (error) {
-    console.log(error)
-    return
-  }
-  console.log("Investments:", data)
-  const list = document.getElementById("list")
-  list.innerHTML = ""
-  data.forEach(inv => {
-    const li = document.createElement("li")
-    li.textContent = inv.name + " - " + inv.amount
-    list.appendChild(li)
-  })
-}
-
-async function login(email, password) {
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) {
-    alert(error.message)
-    return
-  }
-  loadInvestments()
-}
-
-window.loadInvestments = loadInvestments
-window.login = login
-</script>
 </body>
 </html>
