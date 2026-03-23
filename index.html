@@ -1628,6 +1628,15 @@ async function initAppAsync() {
   window._fbFns.onAuthStateChanged(window._fbAuth, async (user) => {
     if (user) {
       _currentUser = { id: user.uid, email: user.email, access_token: user.uid };
+      const prevId = localStorage.getItem('cdb_logged_user_id');
+      if (prevId && prevId !== user.uid) {
+        localStorage.removeItem('cdb_investments');
+        localStorage.removeItem('cdb_selic_custom');
+        localStorage.removeItem('cdb_display_name');
+        localStorage.removeItem('cdb_avatar');
+        investments = [];
+      }
+      localStorage.setItem('cdb_logged_user_id', user.uid);
       await onLoginSuccess();
     } else {
       showLogin();
@@ -3292,6 +3301,19 @@ async function doLogin() {
     const user = cred.user;
     _currentUser = { id: user.uid, email: user.email, access_token: user.uid };
     btn.disabled = false; spin.style.display = 'none';
+    // Limpa cache do usuario anterior para nao misturar dados
+    const prevUserId = localStorage.getItem('cdb_logged_user_id');
+    if (prevUserId && prevUserId !== user.uid) {
+      localStorage.removeItem('cdb_investments');
+      localStorage.removeItem('cdb_selic_custom');
+      localStorage.removeItem('cdb_display_name');
+      localStorage.removeItem('cdb_avatar');
+      localStorage.removeItem('cdb_cdi_cache');
+      localStorage.removeItem('cdb_cdi_cache_date');
+      localStorage.removeItem('cdb_cdi_cache_version');
+      investments = [];
+    }
+    localStorage.setItem('cdb_logged_user_id', user.uid);
     await onLoginSuccess();
   } catch(e) {
     btn.disabled = false; spin.style.display = 'none';
@@ -3310,6 +3332,11 @@ async function doLogout() {
   const { signOut } = window._fbFns;
   await signOut(window._fbAuth).catch(() => {});
   localStorage.removeItem('cdb_auth_token');
+  localStorage.removeItem('cdb_investments');
+  localStorage.removeItem('cdb_selic_custom');
+  localStorage.removeItem('cdb_display_name');
+  localStorage.removeItem('cdb_avatar');
+  localStorage.removeItem('cdb_logged_user_id');
   _currentUser = null;
   investments = [];
   showLogin();
