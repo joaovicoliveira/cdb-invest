@@ -2263,7 +2263,7 @@ function initCharts() {
   chartByInv = new Chart(document.getElementById('chart-by-investment'), { type: 'doughnut', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: cd.text, font: { family: 'Instrument Sans' }, boxWidth: 12 } } } } });
   chartMonthly = new Chart(document.getElementById('chart-monthly'), { type: 'bar', data: { labels: [], datasets: [] }, options: { ...baseOpts } });
   chartDailyMonth = new Chart(document.getElementById('chart-daily-month'), {
-    type: 'line',
+    type: 'bar',
     data: { labels: [], datasets: [] },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -2278,14 +2278,14 @@ function initCharts() {
       },
       scales: {
         x: {
-          ticks: { color: cd.text, font: { size: 10, family: 'Instrument Sans' }, maxTicksLimit: 12 },
-          grid: { color: cd.grid }
+          ticks: { color: cd.text, font: { size: 10, family: 'Instrument Sans' }, maxTicksLimit: 15 },
+          grid: { color: 'transparent' }
         },
         y: {
           ticks: {
             color: cd.text,
             font: { size: 10, family: 'Instrument Sans' },
-            callback: v => (v >= 0 ? '+' : '-') + 'R$ ' + (Math.abs(v) >= 1000 ? (Math.abs(v)/1000).toFixed(1)+'k' : Math.abs(v).toFixed(0))
+            callback: v => 'R$ ' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v.toFixed(0))
           },
           grid: { color: cd.grid }
         }
@@ -2317,7 +2317,7 @@ function updateChartColors() {
   const _cd = chartDefaults();
   if (chartDailyMonth) { chartDailyMonth.destroy(); chartDailyMonth = null; }
   chartDailyMonth = new Chart(document.getElementById('chart-daily-month'), {
-    type: 'line',
+    type: 'bar',
     data: { labels: [], datasets: [] },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -2411,52 +2411,41 @@ function updateDailyMonthChart() {
   const labels = [];
   const values = [];
 
-  // Do dia 1 do mes atual ate hoje
+  // Do dia 1 do mes atual ate hoje — rendimento de CADA dia individualmente
   const daysInMonth = today.getDate();
+  let prevDayNet = 0;
   for (let day = 1; day <= daysInMonth; day++) {
     const d = new Date(year, month, day);
     const dateStr = d.toISOString().slice(0, 10);
     labels.push(day + '/' + (month + 1));
-    let total = 0;
+    let totalNet = 0;
     investments.forEach(inv => {
       if (inv.start <= dateStr) {
         const c = calcCDB(inv, dateStr);
-        total += Math.max(0, c.netNow - c.principalAtual);
+        totalNet += Math.max(0, c.netNow - c.principalAtual);
       }
     });
-    values.push(parseFloat(total.toFixed(2)));
+    // Rendimento do dia = diferenca entre hoje e ontem
+    const dailyYield = parseFloat((totalNet - prevDayNet).toFixed(2));
+    values.push(dailyYield);
+    prevDayNet = totalNet;
   }
 
-  // Ganho no mes
-  const gain = values[values.length - 1];
+  // Total do mes = soma de todos os dias
+  const gain = values.reduce((a, b) => a + b, 0);
   const gainEl = document.getElementById('daily-chart-gain');
   const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   if (gainEl) gainEl.textContent = (gain >= 0 ? '+' : '') + fmt(gain) + ' em ' + monthNames[month];
 
-  // Gradiente
-  const canvas = document.getElementById('chart-daily-month');
-  const ctx = canvas ? canvas.getContext('2d') : null;
-  let bg = 'rgba(0,229,176,0.10)';
-  if (ctx) {
-    const grad = ctx.createLinearGradient(0, 0, 0, 180);
-    grad.addColorStop(0, 'rgba(0,229,176,0.30)');
-    grad.addColorStop(1, 'rgba(0,229,176,0.01)');
-    bg = grad;
-  }
-
   chartDailyMonth.data.labels = labels;
   chartDailyMonth.data.datasets = [{
     data: values,
-    borderColor: '#00e5b0',
-    backgroundColor: bg,
-    borderWidth: 2,
-    tension: 0.35,
-    fill: true,
-    pointRadius: daysInMonth <= 10 ? 3 : 0,
-    pointHoverRadius: 5,
-    pointHoverBackgroundColor: '#00e5b0',
-    pointHoverBorderColor: '#fff',
-    pointHoverBorderWidth: 2
+    backgroundColor: 'rgba(0,229,176,0.75)',
+    hoverBackgroundColor: '#00e5b0',
+    borderColor: 'rgba(0,229,176,0.9)',
+    borderWidth: 0,
+    borderRadius: 3,
+    borderSkipped: false
   }];
   chartDailyMonth.update();
 }
