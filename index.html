@@ -1614,6 +1614,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chartByInv) chartByInv.resize();
     if (chartMonthly) chartMonthly.resize();
     if (chartMonthlyPct) chartMonthlyPct.resize();
+    if (chartDailyMonth) chartDailyMonth.resize();
   });
 });
 
@@ -2261,6 +2262,36 @@ function initCharts() {
   chartEvolution = new Chart(document.getElementById('chart-evolution'), { type: 'line', data: { labels: [], datasets: [] }, options: { ...baseOpts, plugins: { ...baseOpts.plugins } } });
   chartByInv = new Chart(document.getElementById('chart-by-investment'), { type: 'doughnut', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: cd.text, font: { family: 'Instrument Sans' }, boxWidth: 12 } } } } });
   chartMonthly = new Chart(document.getElementById('chart-monthly'), { type: 'bar', data: { labels: [], datasets: [] }, options: { ...baseOpts } });
+  chartDailyMonth = new Chart(document.getElementById('chart-daily-month'), {
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' ' + new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(ctx.parsed.y)
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: cd.text, font: { size: 10, family: 'Instrument Sans' }, maxTicksLimit: 12 },
+          grid: { color: cd.grid }
+        },
+        y: {
+          ticks: {
+            color: cd.text,
+            font: { size: 10, family: 'Instrument Sans' },
+            callback: v => 'R$\u00a0' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0))
+          },
+          grid: { color: cd.grid }
+        }
+      }
+    }
+  });
 }
 
 function initChartMonthlyPct() {
@@ -2284,6 +2315,7 @@ function initChartMonthlyPct() {
 
 function updateChartColors() {
   const _cd = chartDefaults();
+  if (chartDailyMonth) { chartDailyMonth.destroy(); chartDailyMonth = null; }
   chartDailyMonth = new Chart(document.getElementById('chart-daily-month'), {
     type: 'line',
     data: { labels: [], datasets: [] },
