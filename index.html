@@ -2413,7 +2413,6 @@ function updateDailyMonthChart() {
 
   // Do dia 1 do mes atual ate hoje
   const daysInMonth = today.getDate();
-  let baseValue = null;
   for (let day = 1; day <= daysInMonth; day++) {
     const d = new Date(year, month, day);
     const dateStr = d.toISOString().slice(0, 10);
@@ -2421,11 +2420,11 @@ function updateDailyMonthChart() {
     let total = 0;
     investments.forEach(inv => {
       if (inv.start <= dateStr) {
-        total += calcCDB(inv, dateStr).netNow;
+        const c = calcCDB(inv, dateStr);
+        total += Math.max(0, c.netNow - c.principalAtual);
       }
     });
-    if (baseValue === null) baseValue = total;
-    values.push(parseFloat((total - baseValue).toFixed(2)));
+    values.push(parseFloat(total.toFixed(2)));
   }
 
   // Ganho no mes
