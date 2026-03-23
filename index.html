@@ -521,6 +521,7 @@
   .sidebar-backdrop.open { display: block; }
 
   @media (max-width: 900px) {
+    .stat-hide-mobile { display: none; }
     .sidebar { transform: translateX(-100%); z-index: 100; transition: transform 0.3s; }
     .sidebar.open { transform: translateX(0); box-shadow: 4px 0 40px rgba(0,0,0,0.5); }
     .hamburger { display: flex; }
@@ -546,12 +547,13 @@
     .card { padding: 16px; }
     .chart-container { height: 200px; }
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    table { min-width: 640px; }
+    table { min-width: 580px; }
     .modal { padding: 20px; margin: 12px; width: calc(100vw - 24px); max-width: 100%; }
     .form-grid { grid-template-columns: 1fr; gap: 12px; }
     .sim-big { font-size: 28px; }
     #page-selic .grid-2 { grid-template-columns: 1fr; }
-    #receive-by-month > div { grid-template-columns: 1fr !important; }
+    #receive-by-month > div { grid-template-columns: 1fr; }
+    #receive-by-month .receive-grid { grid-template-columns: 1fr; }
     .table-search { max-width: 100%; }
     .page-header { flex-wrap: wrap; gap: 10px; }
   }
@@ -800,7 +802,7 @@
           <div class="stat-value mono" id="s-gross">R$ 0,00</div>
           <div class="stat-sub" id="s-gross-sub">+0,00 rendimentos</div>
         </div>
-        <div class="stat-card gold">
+        <div class="stat-card gold stat-hide-mobile">
           <div class="stat-label">IR + IOF</div>
           <div class="stat-value mono" id="s-tax">R$ 0,00</div>
           <div class="stat-sub">Impostos estimados</div>
@@ -827,13 +829,19 @@
           <div class="stat-sub" id="s-next-venc-sub">dias restantes</div>
           <div style="font-size:10px;color:var(--gold);margin-top:6px;opacity:0.7;">ver alertas →</div>
         </div>
-        <div class="stat-card purple" id="s-yield-vs-principal-card">
+        <div class="stat-card purple stat-hide-mobile" id="s-yield-vs-principal-card">
           <div class="stat-label">Juros vs Capital</div>
           <div class="stat-value mono" id="s-yield-total">R$ 0,00</div>
           <div class="stat-sub">Juros = <span id="s-yield-pct">0%</span> do capital aportado</div>
           <div id="s-principal" style="display:none;">0</div>
-          <div id="s-yield-bar" style="display:none;"></div>
+          <div style="margin-top:10px;">
+            <div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;">
+              <div id="s-yield-bar" style="height:100%;width:0%;border-radius:3px;background:var(--accent3);transition:width 0.6s ease;"></div>
+            </div>
+          </div>
+          <div id="s-yield-sub-info" style="font-size:11px;color:var(--text3);margin-top:5px;"></div>
           <div id="s-yield-milestone" style="font-size:11px;font-weight:600;margin-top:6px;display:none;"></div>
+          <div id="s-yield-sub-info" style="font-size:11px;color:var(--text3);margin-top:4px;"></div>
         </div>
       </div>
 
@@ -849,10 +857,10 @@
       </div>
       <div class="card" style="margin-bottom:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
-          <div class="chart-title" style="margin-bottom:0;">Saldo Líquido — Últimos 30 dias</div>
+          <div class="chart-title" style="margin-bottom:0;">Rendimento Diário — Mês Atual</div>
           <div style="font-size:12px;color:var(--accent);font-weight:600;" id="daily-chart-gain"></div>
         </div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="daily-chart-subtitle">Rentabilidade acumulada no mês — quanto rendeu líquido a cada dia</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="daily-chart-subtitle">Rendimento líquido por dia útil — barras mostram o que cada dia rendeu</div>
         <div class="chart-container" style="height:180px;"><canvas id="chart-daily-month"></canvas></div>
       </div>
 
@@ -888,7 +896,6 @@
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>% CDI</th>
                 <th>Aplicado</th>
                 <th>Resgates</th>
                 <th>Saldo Principal</th>
@@ -993,6 +1000,14 @@
               <label>Prazo (dias)</label>
               <input type="number" id="sim-days" value="365" min="1" oninput="runSimulator()">
             </div>
+            <div class="form-group">
+              <label>Tipo de Investimento</label>
+              <select id="sim-type" onchange="runSimulator()">
+                <option value="CDB">CDB (IR + IOF)</option>
+                <option value="LCI">LCI (isento IR)</option>
+                <option value="LCA">LCA (isento IR)</option>
+              </select>
+            </div>
           </div>
           <div class="divider"></div>
           <div class="section-title" style="font-size:14px;">Resultado da Simulação</div>
@@ -1028,6 +1043,15 @@
           </div>
           <div id="alert-venc-list"></div>
         </div>
+      </div>
+      <div class="card" style="margin-top:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+          <div class="section-title" style="margin:0;">
+            <svg width="18" height="18" fill="none" stroke="var(--warning)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Informações da Carteira
+          </div>
+        </div>
+        <div id="alert-portfolio-info"></div>
       </div>
     </div>
 
@@ -1107,7 +1131,7 @@
           Meta de Patrimônio
         </div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:20px;">
-          Defina uma meta de patrimônio líquido e veja quando você vai atingi-la com os rendimentos atuais.
+          Defina uma meta de patrimônio líquido total (capital + rendimentos) e veja quando você vai atingi-la com os rendimentos atuais.
         </div>
         <div class="grid-2" style="margin-bottom:24px;">
           <div class="form-group">
@@ -1188,6 +1212,7 @@
 <!-- FAB — mobile only -->
 <button class="fab" id="fab-new-cdb" onclick="openModal()" title="Novo CDB" aria-label="Novo CDB">
   <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  <span style="font-size:11px;font-weight:700;letter-spacing:0.5px;margin-left:2px;">CDB</span>
 </button>
 
 <!-- MOBILE BOTTOM NAV -->
@@ -1418,7 +1443,8 @@ async function loadCDIFromBCB() {
         buildCumulativeCDI();
         console.log('CDI cache loaded:', Object.keys(cached).length, 'dias');
         const lbl = document.getElementById('bcb-status-label');
-        if (lbl) { lbl.textContent = '✓ BCB: ' + Object.keys(cached).length + ' dias reais'; lbl.style.color = 'var(--accent)'; }
+        const cachedTime = localStorage.getItem('cdb_cdi_cache_time') || '';
+        if (lbl) { lbl.textContent = '✓ BCB: ' + Object.keys(cached).length + ' dias' + (cachedTime ? ' · ' + cachedTime : ''); lbl.style.color = 'var(--accent)'; }
         return true;
       }
     } catch(e) {}
@@ -1471,9 +1497,11 @@ async function loadCDIFromBCB() {
     localStorage.setItem(cacheKey, JSON.stringify(cache));
     localStorage.setItem('cdb_cdi_cache_date', todayStr);
     localStorage.setItem('cdb_cdi_cache_version', 'v3');
+    localStorage.setItem('cdb_cdi_cache_time', new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}));
     console.log('CDI BCB carregado:', Object.keys(cache).length, 'dias úteis');
+    const nowTime = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
     const lbl2 = document.getElementById('bcb-status-label');
-    if (lbl2) { lbl2.textContent = '✓ BCB: ' + Object.keys(cache).length + ' dias reais'; lbl2.style.color = 'var(--accent)'; }
+    if (lbl2) { lbl2.textContent = '✓ BCB: ' + Object.keys(cache).length + ' dias · ' + nowTime; lbl2.style.color = 'var(--accent)'; }
     return true;
   } catch(e) {
     console.warn('BCB CDI fetch failed, using Selic approximation:', e.message);
@@ -1864,7 +1892,7 @@ function getCumLogBCB(dateStr) {
   // Find the latest date <= dateStr
   if (_cdiCumLog[dateStr] !== undefined) return _cdiCumLog[dateStr];
   // Binary search for nearest date
-  const keys = Object.keys(_cdiCumLog);
+  const keys = Object.keys(_cdiCumLog).sort();
   // Find last key <= dateStr
   let lo = 0, hi = keys.length - 1, res = -1;
   while (lo <= hi) {
@@ -2070,7 +2098,8 @@ function renderStats() {
     totalTax      += c.iof + c.ir;
   });
   const totalYield = totalGross - totalInv;
-  const rentab = totalInv > 0 ? ((totalNet / totalInv - 1) * 100) : 0;
+  const totalNetYield = totalNet - totalInv;
+  const rentab = totalInv > 0 ? (totalNetYield / totalInv * 100) : 0;
 
   // ── KPI 1: Rentabilidade vs CDI ──────────────────────────────────────────
   // What % of CDI is the portfolio earning NET?
@@ -2097,7 +2126,10 @@ function renderStats() {
     if (c.principalAtual > 0.01) {
       const grossToday = c.grossNow;
       const dailyRate  = dailyBaseCDI * (inv.pctCdi / 100);
-      dailyYield += grossToday * dailyRate;
+      const dailyGross = grossToday * dailyRate;
+      // Descontar IR proporcional para estimar rendimento liquido diario
+      const netFactor  = inv.type === 'CDB' ? (1 - c.irRate) : 1;
+      dailyYield += dailyGross * netFactor;
     }
   });
 
@@ -2210,7 +2242,6 @@ function renderInvestmentsTable() {
     const hasResgates = resgates.length > 0;
     return `<tr class="${hasResgates ? 'inv-has-resgate' : ''}">
       <td><div class="td-name">${inv.name}</div><div style="font-size:11px;color:var(--text3);">${inv.pctCdi}% CDI · ${inv.type}</div></td>
-      <td class="td-mono">${inv.pctCdi}%</td>
       <td class="td-mono">${fmt(inv.value)}</td>
       <td>${hasResgates ? `<span class="td-mono" style="color:var(--warning);">-${fmt(c.totalResgatesLiquido)}</span><div style="font-size:10px;color:var(--text3);">${resgates.length} resgate(s)</div>` : '<span style="color:var(--text3);font-size:12px;">—</span>'}</td>
       <td class="td-mono" style="color:${hasResgates ? 'var(--warning)' : 'var(--text)'};">${fmt(c.principalAtual)}</td>
@@ -2428,7 +2459,6 @@ function updateDailyMonthChart() {
   for (let day = 1; day <= daysInMonth; day++) {
     const d = new Date(year, month, day);
     const dateStr = d.toISOString().slice(0, 10);
-    labels.push(day + '/' + (month + 1));
     let totalNet = 0;
     investments.forEach(inv => {
       if (inv.start <= dateStr) {
@@ -2438,7 +2468,13 @@ function updateDailyMonthChart() {
     });
     // Rendimento do dia = diferenca entre este dia e o anterior
     const dailyYield = parseFloat((totalNet - prevDayNet).toFixed(2));
-    values.push(dailyYield);
+    // Mostrar apenas dias uteis (com rendimento > 0 ou primeiro dia do mes)
+    if (isBusinessDayBCB(dateStr) || day === 1) {
+      const dow = d.getDay();
+      const dowLabel = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][dow];
+      labels.push(dowLabel + ' ' + day + '/' + (month + 1));
+      values.push(isBusinessDayBCB(dateStr) ? dailyYield : 0);
+    }
     prevDayNet = totalNet;
   }
 
@@ -2472,7 +2508,8 @@ function updateByInvChart() {
   const groups = {};
   investments.forEach(inv => {
     const key = `${inv.pctCdi}% CDI · ${inv.type}`;
-    groups[key] = (groups[key] || 0) + inv.value;
+    const c = calcCDBCached(inv);
+    groups[key] = (groups[key] || 0) + c.principalAtual; // usa saldo real apos resgates
   });
   const totalInvested = Object.values(groups).reduce((a, b) => a + b, 0);
   const labels = Object.keys(groups).map(key => {
@@ -2519,7 +2556,8 @@ function updateMonthlyChart() {
       if (inv.start >= effectiveEnd || inv.end <= firstOfMonth) return;
       const calcStart = inv.start > firstOfMonth ? inv.start : firstOfMonth;
       const calcEnd   = inv.end   < effectiveEnd ? inv.end   : effectiveEnd;
-      const principal = calcCDBCached(inv).principalAtual; // use real principal after resgates
+      const cAtStart = calcCDB(inv, calcStart);
+      const principal = cAtStart.principalAtual; // principal real no inicio do periodo
       const g1 = calcGross(principal, inv.pctCdi, inv.start, calcStart);
       const g2 = calcGross(principal, inv.pctCdi, inv.start, calcEnd);
       monthYield += Math.max(0, g2 - g1);
@@ -2563,7 +2601,7 @@ function renderReports() {
     if (tbody) {
       tbody.innerHTML = investments.map(inv => {
         const c = calcCDB(inv);
-        const rentab = ((c.netFull / inv.value - 1) * 100).toFixed(2);
+        const rentab = (c.principalAtual > 0 ? ((c.netFull / c.principalAtual - 1) * 100) : 0).toFixed(2);
         return `<tr>
           <td class="td-name">${inv.name}</td>
           <td class="td-mono">${fmt(inv.value)}</td>
@@ -2602,7 +2640,8 @@ function renderReports() {
           if (inv.start >= nextMo || inv.end <= firstOfMonth) return;
           const calcStart = inv.start > firstOfMonth ? inv.start : firstOfMonth;
           const calcEnd   = inv.end   < nextMo       ? inv.end   : nextMo;
-          const principal = calcCDBCached(inv).principalAtual;
+          const cAtPeriodStart = calcCDB(inv, calcStart);
+          const principal = cAtPeriodStart.principalAtual;
           const g1 = calcGross(principal, inv.pctCdi, inv.start, calcStart);
           const g2 = calcGross(principal, inv.pctCdi, inv.start, calcEnd);
           receiveByMonth[m] = (receiveByMonth[m] || 0) + Math.max(0, g2 - g1);
@@ -2670,9 +2709,38 @@ function renderAlerts() {
         return `<div class="alert ${cls}" style="margin-bottom:8px;">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
           <div><strong>${inv.name}</strong> — vence em <strong>${diff} dias</strong> (${fmtDate(inv.end)})<br>
-          <span style="font-size:12px;opacity:0.8;">Valor líquido previsto: ${fmt(c.netFull)}</span></div>
+          <span style="font-size:12px;opacity:0.8;">Valor líquido previsto: ${fmt(c.netFull)} &nbsp;·&nbsp; ${inv.liquidity === 'diaria' ? 'Liquidez diária' : 'Vence no prazo'}</span></div>
         </div>`;
       }).join('');
+
+  // ── Info adicional da carteira ───────────────────────────────────────────
+  const portfolioEl = document.getElementById('alert-portfolio-info');
+  if (portfolioEl && investments.length > 0) {
+    let totalInv = 0, totalNet = 0, expiredCount = 0, dailyLiqCount = 0;
+    investments.forEach(inv => {
+      const c = calcCDB(inv);
+      totalInv += c.principalAtual;
+      totalNet += c.netNow;
+      if (getStatus(inv) === 'expired') expiredCount++;
+      if (inv.liquidity === 'diaria') dailyLiqCount++;
+    });
+    const rendTotal = totalNet - totalInv;
+    const rentabPct = totalInv > 0 ? (rendTotal / totalInv * 100).toFixed(2) : '0.00';
+    const infos = [
+      { icon: '💰', label: 'Capital total investido', value: fmt(totalInv), color: 'var(--text)' },
+      { icon: '📈', label: 'Rendimento líquido acumulado', value: '+' + fmt(rendTotal) + ' (' + rentabPct + '%)', color: 'var(--accent)' },
+      { icon: '💧', label: 'Investimentos com liquidez diária', value: dailyLiqCount + ' de ' + investments.length, color: 'var(--accent2)' },
+      { icon: '⚠️', label: 'Investimentos vencidos (pendentes resgate)', value: expiredCount > 0 ? expiredCount + ' investimento(s)' : 'Nenhum', color: expiredCount > 0 ? 'var(--warning)' : 'var(--text3)' },
+    ];
+    portfolioEl.innerHTML = infos.map(info =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:13px;color:var(--text2);">${info.icon} ${info.label}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:${info.color};">${info.value}</span>
+      </div>`).join('') +
+      `<div style="margin-top:12px;font-size:11px;color:var(--text3);">CDI atual: ${getCDI()}% a.a. &nbsp;·&nbsp; Selic: ${(getSelicForDate(new Date().toISOString().slice(0,10))||0).toFixed(2)}% a.a.</div>`;
+  } else if (portfolioEl) {
+    portfolioEl.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:20px 0;">Nenhum investimento cadastrado.</div>';
+  }
 
 }
 
@@ -2700,7 +2768,8 @@ function runSimulator() {
   const pctCdi = parseFloat(document.getElementById('sim-pct-cdi').value) || 100;
   const cdi = parseFloat(document.getElementById('sim-cdi').value) || getCDI();
   const days = parseInt(document.getElementById('sim-days').value) || 365;
-  const res = simCalc(value, pctCdi, cdi, days);
+  const simType = (document.getElementById('sim-type') ? document.getElementById('sim-type').value : 'CDB');
+  const res = simCalc(value, pctCdi, cdi, days, simType);
   document.getElementById('sim-result-box').innerHTML = `
     <div class="sim-result">
       <div style="font-size:12px;color:var(--text3);margin-bottom:4px;">Valor Líquido Final</div>
@@ -2708,8 +2777,8 @@ function runSimulator() {
       <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">${days} dias · ${pctCdi}% CDI</div>
       <div class="sim-row"><span>Valor investido</span><span class="mono">${fmt(value)}</span></div>
       <div class="sim-row"><span>Rendimento bruto</span><span class="mono" style="color:var(--accent2);">+${fmt(res.yield)}</span></div>
-      <div class="sim-row"><span>IR (${(res.irRate*100).toFixed(1)}%)</span><span class="mono" style="color:var(--danger);">-${fmt(res.ir)}</span></div>
-      <div class="sim-row"><span>IOF</span><span class="mono" style="color:var(--danger);">-${fmt(res.iof)}</span></div>
+      ${simType !== 'CDB' ? '' : `<div class="sim-row"><span>IR (${(res.irRate*100).toFixed(1)}%)</span><span class="mono" style="color:var(--danger);">-${fmt(res.ir)}</span></div>`}
+      ${simType !== 'CDB' ? '<div class="sim-row"><span style="color:var(--accent);">✓ Isento de IR e IOF</span><span class="mono" style="color:var(--accent);">-${fmt(0)}</span></div>' : `<div class="sim-row"><span>IOF</span><span class="mono" style="color:var(--danger);">-${fmt(res.iof)}</span></div>`}
       <div class="sim-row"><span><strong>Líquido</strong></span><span class="mono" style="color:var(--accent);font-weight:600;">${fmt(res.net)}</span></div>
       <div class="sim-row"><span>Rentabilidade líquida</span><span style="color:var(--accent);">+${((res.net/value-1)*100).toFixed(2)}%</span></div>
       <div class="sim-row"><span>Rentab. ao mês</span><span style="color:var(--accent2);">~${(Math.pow(res.net/value, 30/days)*100-100).toFixed(3)}% a.m.</span></div>
@@ -2719,14 +2788,14 @@ function runSimulator() {
     <table style="width:100%;font-size:13px;">
       <thead><tr><th>Prazo</th><th>Bruto</th><th>IR</th><th>Líquido</th></tr></thead>
       <tbody>${prazosBr.map(([d, label]) => {
-        const r = simCalc(value, pctCdi, cdi, d);
+        const r = simCalc(value, pctCdi, cdi, d, simType);
         const highlight = Math.abs(d - days) < 5 ? 'style="background:rgba(0,229,176,0.07);"' : '';
         return `<tr ${highlight}><td>${label}</td><td class="mono">${fmt(r.gross)}</td><td class="mono" style="color:var(--danger);">-${fmt(r.ir)}</td><td class="mono" style="color:var(--accent);">${fmt(r.net)}</td></tr>`;
       }).join('')}</tbody>
     </table>`;
 }
 
-function simCalc(value, pctCdi, cdi, days) {
+function simCalc(value, pctCdi, cdi, days, invType = "CDB") {
   // Use same formula as BCB: daily CDI * pctCdi/100
   const annualRate = cdi / 100;
   const baseDailyRate = Math.pow(1 + annualRate, 1/252) - 1;
@@ -2734,11 +2803,12 @@ function simCalc(value, pctCdi, cdi, days) {
   const bussDays = Math.round(days * 252 / 365);
   const gross = value * Math.pow(1 + dailyRate, bussDays);
   const yld = gross - value;
-  const irRate = getIRRate('CDB', days);
-  const iofRate = getIOFRate(days);
+  const type = (typeof invType !== 'undefined') ? invType : 'CDB';
+  const irRate = getIRRate(type, days);
+  const iofRate = type === 'CDB' ? getIOFRate(days) : 0;
   const iof = yld * iofRate;
   const yldAfterIOF = yld - iof;
-  const ir = yldAfterIOF * irRate;
+  const ir = type === 'CDB' ? yldAfterIOF * irRate : 0;
   const net = gross - iof - ir;
   return { gross, yield: yld, irRate, iof, ir, net };
 }
@@ -2746,18 +2816,79 @@ function simCalc(value, pctCdi, cdi, days) {
 // ─── EXPORT PDF ──────────────────────────────────────────────────────────────
 function exportPDF() {
   const w = window.open('', '_blank');
-  const now = new Date().toLocaleDateString('pt-BR');
+  if (!w) { alert('Permita pop-ups para exportar o relatório.'); return; }
+  const now = new Date().toLocaleString('pt-BR');
   let rows = investments.map(inv => {
     const c = calcCDB(inv);
-    return '<tr><td>' + inv.name + '</td><td>' + inv.pctCdi + '% CDI</td><td>' + fmt(inv.value) + '</td><td>' + fmt(c.grossNow) + '</td><td>' + fmt(c.ir) + '</td><td>' + fmt(c.netNow) + '</td><td>' + fmtDate(inv.end) + '</td></tr>';
+    const st = getStatus(inv);
+    const stLabel = { active: 'Ativo', soon: 'Vence em breve', expired: 'Vencido' }[st];
+    const rendimento = c.netNow - c.principalAtual;
+    const rentabPct  = c.principalAtual > 0 ? ((rendimento / c.principalAtual) * 100).toFixed(2) : '0.00';
+    const resgStr    = (inv.resgates||[]).length > 0
+      ? (inv.resgates||[]).map(r => fmtDate(r.date) + ': -' + fmt(r.valorLiquido)).join('; ')
+      : '—';
+    return '<tr>'
+      + '<td><strong>' + inv.name + '</strong><br><small>' + inv.type + ' · ' + inv.pctCdi + '% CDI · ' + stLabel + '</small></td>'
+      + '<td>' + fmt(inv.value) + '</td>'
+      + '<td>' + fmt(c.principalAtual) + '</td>'
+      + '<td style="color:#007a5e;">+' + fmt(rendimento) + '<br><small>' + rentabPct + '%</small></td>'
+      + '<td>' + fmt(c.grossNow) + '</td>'
+      + '<td style="color:#c0392b;">' + fmt(c.iof + c.ir) + '</td>'
+      + '<td style="color:#007a5e;font-weight:bold;">' + fmt(c.netNow) + '</td>'
+      + '<td>' + fmtDate(inv.start) + '</td>'
+      + '<td>' + fmtDate(inv.end) + '</td>'
+      + '<td style="font-size:11px;">' + resgStr + '</td>'
+      + '</tr>';
   }).join('');
-  let totInv=0, totGross=0, totNet=0;
-  investments.forEach(inv => { const c = calcCDB(inv); totInv += inv.value; totGross += c.grossNow; totNet += c.netNow; });
-  const style = 'body{font-family:Arial,sans-serif;max-width:900px;margin:0 auto;padding:20px;color:#222;}h1{color:#007a5e;}table{width:100%;border-collapse:collapse;margin:16px 0;}th,td{border:1px solid #ddd;padding:8px 10px;text-align:left;}th{background:#f5f5f5;}tr:nth-child(even){background:#fafafa;}.sum{background:#e8f7f2;font-weight:bold;}';
-  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatorio CDB</title><style>' + style + '</style></head>'
-    + '<body><h1>Relatorio CDB Invest</h1><p>Gerado em ' + now + ' - CDI: ' + getCDI() + '% a.a.</p>'
-    + '<table><thead><tr><th>Nome</th><th>% CDI</th><th>Aplicado</th><th>Bruto</th><th>IR</th><th>Liquido</th><th>Vencimento</th></tr></thead>'
-    + '<tbody>' + rows + '<tr class="sum"><td colspan="2">TOTAL</td><td>' + fmt(totInv) + '</td><td>' + fmt(totGross) + '</td><td>' + fmt(totGross - totNet) + '</td><td>' + fmt(totNet) + '</td><td>-</td></tr></tbody></table>'
+  let totInv=0, totGross=0, totNet=0, totTax=0, totRend=0;
+  investments.forEach(inv => {
+    const c = calcCDB(inv);
+    totInv   += c.principalAtual;
+    totGross += c.grossNow;
+    totNet   += c.netNow;
+    totTax   += c.iof + c.ir;
+    totRend  += Math.max(0, c.netNow - c.principalAtual);
+  });
+  const style = 'body{font-family:Arial,sans-serif;max-width:1100px;margin:0 auto;padding:24px;color:#222;font-size:13px;}'
+    + 'h1{color:#007a5e;margin-bottom:4px;}h2{color:#444;font-size:15px;margin:20px 0 8px;}'
+    + '.meta{color:#666;font-size:12px;margin-bottom:20px;}'
+    + '.kpi-row{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;}'
+    + '.kpi{background:#f0f9f5;border:1px solid #b2dece;border-radius:8px;padding:12px 16px;min-width:140px;}'
+    + '.kpi .label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:4px;}'
+    + '.kpi .val{font-size:18px;font-weight:bold;color:#007a5e;}'
+    + 'table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px;}'
+    + 'th,td{border:1px solid #ddd;padding:7px 9px;text-align:left;vertical-align:top;}'
+    + 'th{background:#f5f5f5;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#555;}'
+    + 'tr:nth-child(even){background:#fafafa;}'
+    + '.sum{background:#e8f7f2;font-weight:bold;font-size:12px;}'
+    + 'small{color:#999;font-size:10px;}';
+  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório CDB Invest</title><style>' + style + '</style></head>'
+    + '<body>'
+    + '<h1>CDB Invest — Relatório de Carteira</h1>'
+    + '<div class="meta">Gerado em ' + now + ' &nbsp;·&nbsp; CDI: ' + getCDI() + '% a.a. &nbsp;·&nbsp; ' + investments.length + ' investimento(s)</div>'
+    + '<div class="kpi-row">'
+    + '<div class="kpi"><div class="label">Capital Investido</div><div class="val">' + fmt(totInv) + '</div></div>'
+    + '<div class="kpi"><div class="label">Rendimento Líquido</div><div class="val">+' + fmt(totRend) + '</div></div>'
+    + '<div class="kpi"><div class="label">Valor Bruto Total</div><div class="val">' + fmt(totGross) + '</div></div>'
+    + '<div class="kpi"><div class="label">IR + IOF Total</div><div class="val" style="color:#c0392b;">-' + fmt(totTax) + '</div></div>'
+    + '<div class="kpi"><div class="label">Patrimônio Líquido</div><div class="val">' + fmt(totNet) + '</div></div>'
+    + '</div>'
+    + '<h2>Detalhamento por Investimento</h2>'
+    + '<table><thead><tr>'
+    + '<th>Nome / Tipo</th><th>Aplicado</th><th>Principal Atual</th><th>Rendimento</th>'
+    + '<th>Bruto Total</th><th>IR + IOF</th><th>Líquido Total</th>'
+    + '<th>Início</th><th>Vencimento</th><th>Resgates</th>'
+    + '</tr></thead>'
+    + '<tbody>' + rows
+    + '<tr class="sum"><td>TOTAL (' + investments.length + ' inv.)</td>'
+    + '<td>' + fmt(totInv) + '</td><td>—</td>'
+    + '<td style="color:#007a5e;">+' + fmt(totRend) + '</td>'
+    + '<td>' + fmt(totGross) + '</td>'
+    + '<td style="color:#c0392b;">-' + fmt(totTax) + '</td>'
+    + '<td style="color:#007a5e;font-weight:bold;">' + fmt(totNet) + '</td>'
+    + '<td colspan="3">—</td>'
+    + '</tr></tbody></table>'
+    + '<p style="font-size:10px;color:#aaa;margin-top:24px;">Relatório gerado pelo CDB Invest. Valores estimados com base no CDI atual. Consulte sempre seu extrato oficial.</p>'
     + '<' + 'script>window.print();</' + 'script></body></html>';
   w.document.write(html);
   w.document.close();
@@ -2783,7 +2914,9 @@ function maskPctCdi(el) {
   if (!raw) { el.value = ''; return; }
   el.value = raw + '%';
   const pos = el.value.length - 1;
-  try { el.setSelectionRange(pos, pos); } catch(e) {}
+  if (el.setSelectionRange) {
+    try { el.setSelectionRange(pos, pos); } catch(e) { /* iOS ignora silenciosamente */ }
+  }
 }
 function getPctCdiValue(el) {
   const raw = (el.value || '').replace('%', '').replace(',', '.').trim();
@@ -3012,7 +3145,7 @@ function renderResgateHistory(inv) {
       <div class="resgate-item">
         <div>
           <div style="font-weight:600;">${fmtDate(r.date)}</div>
-          <div class="resgate-date">Registrado em ${fmtDate(r.date)}</div>
+          <div class="resgate-date">Valor bruto: ${fmt(r.valorLiquido)}</div>
         </div>
         <div style="text-align:right;display:flex;align-items:center;gap:10px;">
           <div>
@@ -3168,7 +3301,8 @@ function renderComparativoAnualizado() {
     });
 
     const avgDays = (totalOriginal > 0 && weightedDays > 0) ? weightedDays / totalOriginal : 365;
-    const totalReturn = totalOriginal > 0 ? (totalNet / totalOriginal - 1) : 0;
+    const totalNetYield = totalNet - totalOriginal; // apenas rendimento liquido, sem o principal
+    const totalReturn = totalOriginal > 0 ? (totalNetYield / totalOriginal) : 0;
     const annualizedReturn = (isFinite(totalReturn) && avgDays > 0)
       ? (Math.pow(1 + totalReturn, 365 / avgDays) - 1) * 100
       : 0;
@@ -3725,6 +3859,7 @@ async function saveInvestment() {
   }
   localStorage.setItem('cdb_investments', JSON.stringify(investments));
   renderAll(); closeModal();
+  showToast(editingId ? '✓ Investimento atualizado!' : '✓ Investimento salvo com sucesso!', 'success');
 }
 
 async function deleteInvestment(id) {
@@ -3799,6 +3934,27 @@ async function refreshBCB() {
   localStorage.removeItem('cdb_cdi_cache_version');
   const ok = await loadCDIFromBCB();
   if (ok) { buildCumulativeCDI(); renderAll(); alert('Taxas CDI atualizadas! ' + Object.keys(_cdiDailyCache).length + ' dias carregados.'); }
+}
+
+function showToast(msg, type = 'success') {
+  let el = document.getElementById('app-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'app-toast';
+    el.style.cssText = 'position:fixed;bottom:72px;right:16px;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:9999;transition:all 0.3s;font-family:"Instrument Sans",sans-serif;pointer-events:none;opacity:0;transform:translateY(8px);max-width:280px;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+    document.body.appendChild(el);
+  }
+  const colors = {
+    success: 'background:rgba(0,229,176,0.95);color:#000;',
+    error:   'background:rgba(255,71,87,0.95);color:#fff;',
+    info:    'background:rgba(0,136,255,0.95);color:#fff;'
+  };
+  el.style.cssText += colors[type] || colors.success;
+  el.textContent = msg;
+  el.style.opacity = '1';
+  el.style.transform = 'translateY(0)';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; }, 2800);
 }
 
 function showSyncStatus(state, msg) {
