@@ -975,7 +975,7 @@
             </div>
             <div class="form-group">
               <label>% do CDI</label>
-              <input type="number" id="sim-pct-cdi" value="100" min="0" step="1" oninput="runSimulator()">
+              <input type="number" id="sim-pct-cdi" value="100" min="0" step="0.01" oninput="runSimulator()">
             </div>
             <div class="form-group">
               <label>CDI (% a.a.)</label>
@@ -1729,7 +1729,7 @@ function openModal(id = null) {
     const inv = investments.find(i => i.id === id);
     document.getElementById('f-name').value = inv.name;
     setMoneyValue(document.getElementById('f-value'), inv.value);
-    const pctEl = document.getElementById('f-pct-cdi'); pctEl.value = inv.pctCdi.toLocaleString('pt-BR') + '%';
+    const pctEl = document.getElementById('f-pct-cdi'); pctEl.value = inv.pctCdi.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 2}) + '%';
     document.getElementById('f-start').value = inv.start;
     document.getElementById('f-end').value = inv.end;
     document.getElementById('f-liquidity').value = inv.liquidity;
@@ -2637,19 +2637,27 @@ function exportPDF() {
 // ─── MASKS ────────────────────────────────────────────────────────────────────
 // ── MÁSCARA % CDI — inteiro com ponto de milhar e % ──────────────────────────
 function maskPctCdi(el) {
-  let raw = el.value.replace(/[^\d]/g, '');
+  // Permite digitos, virgula e ponto decimal (ex: 87,50 ou 87.50)
+  let raw = el.value.replace('%', '').trim();
+  // Remove caracteres invalidos mantendo apenas digitos, virgula e ponto
+  raw = raw.replace(/[^\d.,]/g, '');
+  // Garante no maximo uma virgula/ponto
+  const parts = raw.split(/[.,]/);
+  if (parts.length > 2) raw = parts[0] + ',' + parts.slice(1).join('');
+  // Limita a 2 casas decimais
+  if (raw.includes(',') || raw.includes('.')) {
+    const sep = raw.includes(',') ? ',' : '.';
+    const [int, dec] = raw.split(sep);
+    raw = int + ',' + (dec || '').slice(0, 2);
+  }
   if (!raw) { el.value = ''; return; }
-  let num = parseInt(raw, 10);
-  if (isNaN(num)) { el.value = ''; return; }
-  // Formatar com ponto de milhar
-  el.value = num.toLocaleString('pt-BR') + '%';
-  // Manter cursor antes do %
+  el.value = raw + '%';
   const pos = el.value.length - 1;
   try { el.setSelectionRange(pos, pos); } catch(e) {}
 }
 function getPctCdiValue(el) {
-  const raw = (el.value || '').replace(/[^\d]/g, '');
-  return parseInt(raw, 10) || 0;
+  const raw = (el.value || '').replace('%', '').replace(',', '.').trim();
+  return parseFloat(raw) || 0;
 }
 
 // ── VER TABELA IR/IOF ─────────────────────────────────────────────────────────
@@ -3567,7 +3575,7 @@ async function saveData() {
 async function saveInvestment() {
   const name      = document.getElementById('f-name').value.trim();
   const value     = getMoneyValue(document.getElementById('f-value'));
-  const pctCdi    = parseFloat(document.getElementById('f-pct-cdi').value);
+  const pctCdi    = getPctCdiValue(document.getElementById('f-pct-cdi'));
   const start     = document.getElementById('f-start').value;
   const end       = document.getElementById('f-end').value;
   const liquidity = document.getElementById('f-liquidity').value;
