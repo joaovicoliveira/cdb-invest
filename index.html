@@ -827,6 +827,27 @@
           <div class="stat-sub" id="s-next-venc-sub">dias restantes</div>
           <div style="font-size:10px;color:var(--gold);margin-top:6px;opacity:0.7;">ver alertas →</div>
         </div>
+        <div class="stat-card" id="s-yield-vs-principal-card" style="grid-column:span 2;">
+          <div class="stat-label">Juros acumulados vs Capital aportado</div>
+          <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-top:8px;">
+            <div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Capital aportado</div>
+              <div class="stat-value mono" id="s-principal" style="font-size:20px;">R$ 0,00</div>
+            </div>
+            <div style="font-size:22px;color:var(--text3);">vs</div>
+            <div>
+              <div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Juros acumulados</div>
+              <div class="stat-value mono" id="s-yield-total" style="font-size:20px;">R$ 0,00</div>
+            </div>
+            <div style="flex:1;min-width:160px;">
+              <div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Juros = <span id="s-yield-pct">0%</span> do capital</div>
+              <div style="background:var(--bg3);border-radius:8px;height:10px;overflow:hidden;">
+                <div id="s-yield-bar" style="height:100%;width:0%;background:var(--accent);border-radius:8px;transition:width 0.6s ease;"></div>
+              </div>
+            </div>
+            <div id="s-yield-milestone" style="font-size:13px;font-weight:600;display:none;"></div>
+          </div>
+        </div>
       </div>
 
       <div class="grid-2" style="margin-bottom:20px;">
@@ -2098,6 +2119,39 @@ function renderStats() {
 
   // New KPIs
   document.getElementById('s-rentab-cdi').textContent = rentabVsCDI.toFixed(1) + '%';
+
+  // ── KPI: Juros vs Capital ────────────────────────────────────────────────
+  const yieldTotal = totalGross - totalInv;
+  const yieldPct   = totalInv > 0 ? (yieldTotal / totalInv * 100) : 0;
+  const barPct     = Math.min(yieldPct, 100);
+  document.getElementById('s-principal').textContent    = fmt(totalInv);
+  document.getElementById('s-yield-total').textContent  = fmt(yieldTotal);
+  document.getElementById('s-yield-pct').textContent    = yieldPct.toFixed(1) + '%';
+  document.getElementById('s-yield-bar').style.width    = barPct + '%';
+  // Cor da barra: verde se juros > 50% do capital, dourado se > 25%, azul senão
+  const bar = document.getElementById('s-yield-bar');
+  if (yieldPct >= 100) { bar.style.background = 'var(--accent)'; }
+  else if (yieldPct >= 50) { bar.style.background = 'var(--accent2)'; }
+  else { bar.style.background = 'var(--accent3)'; }
+  // Marco especial quando juros superam o capital
+  const milestone = document.getElementById('s-yield-milestone');
+  const card = document.getElementById('s-yield-vs-principal-card');
+  if (yieldTotal >= totalInv && totalInv > 0) {
+    milestone.style.display = 'block';
+    milestone.style.color   = 'var(--accent)';
+    milestone.textContent   = '🎉 Juros já superam o capital!';
+    card.style.borderColor  = 'var(--accent)';
+    card.style.boxShadow    = '0 0 0 1px var(--accent)';
+  } else {
+    milestone.style.display = 'none';
+    card.style.borderColor  = '';
+    card.style.boxShadow    = '';
+    // Quanto falta para atingir o marco
+    if (totalInv > 0 && yieldTotal > 0) {
+      const falta = totalInv - yieldTotal;
+      document.getElementById('s-yield-sub-info') && (document.getElementById('s-yield-sub-info').textContent = 'Faltam ' + fmt(falta) + ' para os juros superarem o capital');
+    }
+  }
   document.getElementById('s-rentab-cdi-sub').textContent =
     rentabVsCDINet.toFixed(1) + '% do CDI líquido';
 
