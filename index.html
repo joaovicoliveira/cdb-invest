@@ -2413,7 +2413,18 @@ function updateDailyMonthChart() {
 
   // Do dia 1 do mes atual ate hoje — rendimento de CADA dia individualmente
   const daysInMonth = today.getDate();
+
+  // Calcula o rendimento acumulado ate o dia anterior ao mes (ultimo dia do mes anterior)
+  const lastDayPrevMonth = new Date(year, month, 0); // dia 0 = ultimo dia do mes anterior
+  const lastDayPrevStr = lastDayPrevMonth.toISOString().slice(0, 10);
   let prevDayNet = 0;
+  investments.forEach(inv => {
+    if (inv.start <= lastDayPrevStr) {
+      const c = calcCDB(inv, lastDayPrevStr);
+      prevDayNet += Math.max(0, c.netNow - c.principalAtual);
+    }
+  });
+
   for (let day = 1; day <= daysInMonth; day++) {
     const d = new Date(year, month, day);
     const dateStr = d.toISOString().slice(0, 10);
@@ -2425,7 +2436,7 @@ function updateDailyMonthChart() {
         totalNet += Math.max(0, c.netNow - c.principalAtual);
       }
     });
-    // Rendimento do dia = diferenca entre hoje e ontem
+    // Rendimento do dia = diferenca entre este dia e o anterior
     const dailyYield = parseFloat((totalNet - prevDayNet).toFixed(2));
     values.push(dailyYield);
     prevDayNet = totalNet;
