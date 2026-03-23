@@ -852,7 +852,7 @@
           <div class="chart-title" style="margin-bottom:0;">Saldo Líquido — Últimos 30 dias</div>
           <div style="font-size:12px;color:var(--accent);font-weight:600;" id="daily-chart-gain"></div>
         </div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="daily-chart-subtitle">Evolução dia a dia do mês atual — os juros compostos trabalhando para você</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="daily-chart-subtitle">Rentabilidade acumulada no mês — quanto rendeu líquido a cada dia</div>
         <div class="chart-container" style="height:180px;"><canvas id="chart-daily-month"></canvas></div>
       </div>
 
@@ -2285,7 +2285,7 @@ function initCharts() {
           ticks: {
             color: cd.text,
             font: { size: 10, family: 'Instrument Sans' },
-            callback: v => 'R$\u00a0' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0))
+            callback: v => (v >= 0 ? '+' : '-') + 'R$ ' + (Math.abs(v) >= 1000 ? (Math.abs(v)/1000).toFixed(1)+'k' : Math.abs(v).toFixed(0))
           },
           grid: { color: cd.grid }
         }
@@ -2339,7 +2339,7 @@ function updateChartColors() {
           ticks: {
             color: _cd.text,
             font: { size: 10, family: 'Instrument Sans' },
-            callback: v => 'R$\u00a0' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0))
+            callback: v => (v >= 0 ? '+' : '-') + 'R$ ' + (Math.abs(v) >= 1000 ? (Math.abs(v)/1000).toFixed(1)+'k' : Math.abs(v).toFixed(0))
           },
           grid: { color: _cd.grid }
         }
@@ -2413,6 +2413,7 @@ function updateDailyMonthChart() {
 
   // Do dia 1 do mes atual ate hoje
   const daysInMonth = today.getDate();
+  let baseValue = null;
   for (let day = 1; day <= daysInMonth; day++) {
     const d = new Date(year, month, day);
     const dateStr = d.toISOString().slice(0, 10);
@@ -2423,11 +2424,12 @@ function updateDailyMonthChart() {
         total += calcCDB(inv, dateStr).netNow;
       }
     });
-    values.push(parseFloat(total.toFixed(2)));
+    if (baseValue === null) baseValue = total;
+    values.push(parseFloat((total - baseValue).toFixed(2)));
   }
 
   // Ganho no mes
-  const gain = values[values.length - 1] - values[0];
+  const gain = values[values.length - 1];
   const gainEl = document.getElementById('daily-chart-gain');
   const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   if (gainEl) gainEl.textContent = (gain >= 0 ? '+' : '') + fmt(gain) + ' em ' + monthNames[month];
