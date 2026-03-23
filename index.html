@@ -852,7 +852,7 @@
           <div class="chart-title" style="margin-bottom:0;">Saldo Líquido — Últimos 30 dias</div>
           <div style="font-size:12px;color:var(--accent);font-weight:600;" id="daily-chart-gain"></div>
         </div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Evolução dia a dia — os juros compostos trabalhando para você</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="daily-chart-subtitle">Evolução dia a dia do mês atual — os juros compostos trabalhando para você</div>
         <div class="chart-container" style="height:180px;"><canvas id="chart-daily-month"></canvas></div>
       </div>
 
@@ -2283,17 +2283,34 @@ function initChartMonthlyPct() {
 }
 
 function updateChartColors() {
+  const _cd = chartDefaults();
   chartDailyMonth = new Chart(document.getElementById('chart-daily-month'), {
     type: 'line',
     data: { labels: [], datasets: [] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: {
-        callbacks: { label: ctx => ' ' + new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(ctx.parsed.y) }
-      }},
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ' ' + new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(ctx.parsed.y)
+          }
+        }
+      },
       scales: {
-        x: { ticks: { color: 'var(--text3)', font: { size: 10 }, maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,0.04)' } },
-        y: { ticks: { color: 'var(--text3)', font: { size: 10 }, callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+        x: {
+          ticks: { color: _cd.text, font: { size: 10, family: 'Instrument Sans' }, maxTicksLimit: 12 },
+          grid: { color: _cd.grid }
+        },
+        y: {
+          ticks: {
+            color: _cd.text,
+            font: { size: 10, family: 'Instrument Sans' },
+            callback: v => 'R$\u00a0' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v.toFixed(0))
+          },
+          grid: { color: _cd.grid }
+        }
       }
     }
   });
@@ -2357,49 +2374,56 @@ function updateEvolutionChart() {
 function updateDailyMonthChart() {
   if (!chartDailyMonth || investments.length === 0) return;
   const today = new Date();
-  const days = [];
+  const year  = today.getFullYear();
+  const month = today.getMonth(); // 0-indexed
   const labels = [];
   const values = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
+
+  // Do dia 1 do mes atual ate hoje
+  const daysInMonth = today.getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
     const dateStr = d.toISOString().slice(0, 10);
-    days.push(dateStr);
-    labels.push(d.getDate() + '/' + (d.getMonth()+1));
+    labels.push(day + '/' + (month + 1));
     let total = 0;
     investments.forEach(inv => {
       if (inv.start <= dateStr) {
         total += calcCDB(inv, dateStr).netNow;
       }
     });
-    values.push(total);
+    values.push(parseFloat(total.toFixed(2)));
   }
-  // Ganho no periodo
-  const gain = values[values.length-1] - values[0];
+
+  // Ganho no mes
+  const gain = values[values.length - 1] - values[0];
   const gainEl = document.getElementById('daily-chart-gain');
-  if (gainEl) gainEl.textContent = gain >= 0 ? '+' + fmt(gain) + ' nos últimos 30 dias' : fmt(gain) + ' nos últimos 30 dias';
+  const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  if (gainEl) gainEl.textContent = (gain >= 0 ? '+' : '') + fmt(gain) + ' em ' + monthNames[month];
 
   // Gradiente
   const canvas = document.getElementById('chart-daily-month');
   const ctx = canvas ? canvas.getContext('2d') : null;
-  let bg = 'rgba(0,229,176,0.08)';
+  let bg = 'rgba(0,229,176,0.10)';
   if (ctx) {
     const grad = ctx.createLinearGradient(0, 0, 0, 180);
-    grad.addColorStop(0, 'rgba(0,229,176,0.25)');
+    grad.addColorStop(0, 'rgba(0,229,176,0.30)');
     grad.addColorStop(1, 'rgba(0,229,176,0.01)');
     bg = grad;
   }
+
   chartDailyMonth.data.labels = labels;
   chartDailyMonth.data.datasets = [{
     data: values,
     borderColor: '#00e5b0',
     backgroundColor: bg,
     borderWidth: 2,
-    tension: 0.3,
+    tension: 0.35,
     fill: true,
-    pointRadius: 0,
-    pointHoverRadius: 4,
-    pointHoverBackgroundColor: '#00e5b0'
+    pointRadius: daysInMonth <= 10 ? 3 : 0,
+    pointHoverRadius: 5,
+    pointHoverBackgroundColor: '#00e5b0',
+    pointHoverBorderColor: '#fff',
+    pointHoverBorderWidth: 2
   }];
   chartDailyMonth.update();
 }
