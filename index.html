@@ -4700,29 +4700,84 @@ function finPopulateYears(selId) {
 
 // ── Firestore ─────────────────────────────────────────────────────────────────
 async function finLoadAll() {
-  const uid = finGetUID(); if (!uid) return;
+  const uid = finGetUID();
+  if (!uid) { console.warn('[finLoadAll] sem uid'); _finCategorias = [...FIN_DEFAULT_CATS]; return; }
   const { collection, getDocs, query, where } = window._fbFns;
   const db = window._fbDb;
+  console.log('[finLoadAll] carregando uid=', uid);
   try {
-    const snap = async (col) => (await getDocs(query(collection(db, col), where('user_id', '==', uid)))).docs.map(d => d.data());
+    const snap = async (col) => {
+      const q = query(collection(db, col), where('user_id', '==', uid));
+      const s = await getDocs(q);
+      console.log(`[finLoadAll] ${col}: ${s.docs.length} docs`);
+      return s.docs.map(d => d.data());
+    };
     _finLancamentos  = await snap('fin_lancamentos');
     _finCartoes      = await snap('fin_cartoes');
     _finGastosCartao = await snap('fin_gastos_cartao');
     const savedCats  = await snap('fin_categorias');
-    // Merge default cats with user cats
     const userCatIds = savedCats.map(c => c.id);
     _finCategorias   = [...FIN_DEFAULT_CATS.filter(c => !userCatIds.includes(c.id)), ...savedCats];
-  } catch(e) { console.warn('[finLoadAll]', e.message); _finCategorias = [...FIN_DEFAULT_CATS]; }
+
+    // Salva cache local
+    localStorage.setItem('fin_cache_' + uid, JSON.stringify({
+      lancamentos: _finLancamentos, cartoes: _finCartoes,
+      gastos: _finGastosCartao, categorias: savedCats
+    }));
+    console.log('[finLoadAll] ok — lanc:', _finLancamentos.length, 'cartoes:', _finCartoes.length);
+  } catch(e) {
+    console.warn('[finLoadAll] erro Firestore:', e.message, '— tentando cache local');
+    // Fallback: localStorage cache
+    try {
+      const cache = JSON.parse(localStorage.getItem('fin_cache_' + uid) || '{}');
+      _finLancamentos  = cache.lancamentos  || [];
+      _finCartoes      = cache.cartoes      || [];
+      _finGastosCartao = cache.gastos       || [];
+      const savedCats  = cache.categorias   || [];
+      const userCatIds = savedCats.map(c => c.id);
+      _finCategorias   = [...FIN_DEFAULT_CATS.filter(c => !userCatIds.includes(c.id)), ...savedCats];
+    } catch(e2) { _finCategorias = [...FIN_DEFAULT_CATS]; }
+  }
 }
 
 async function finSaveDoc(col, id, data) {
-  const uid = finGetUID(); if (!uid) return;
+  const uid = finGetUID();
+  if (!uid) { console.warn('[finSaveDoc] sem uid, não salvo'); return; }
   const { collection, doc, setDoc } = window._fbFns;
-  await setDoc(doc(collection(window._fbDb, col), id), { ...data, user_id: uid }).catch(e => console.warn('finSave err:', e));
+  const docData = { ...data, user_id: uid };
+  try {
+    await setDoc(doc(collection(window._fbDb, col), id), docData);
+    console.log('[finSaveDoc] ok:', col, id);
+    // Atualiza cache local
+    finUpdateLocalCache(uid);
+  } catch(e) {
+    console.error('[finSaveDoc] ERRO:', col, id, e.message);
+    showToast('⚠️ Erro ao salvar no banco: ' + e.message, 'error');
+  }
 }
+
 async function finDeleteDoc(col, id) {
+  const uid = finGetUID();
   const { collection, doc, deleteDoc } = window._fbFns;
-  await deleteDoc(doc(collection(window._fbDb, col), id)).catch(e => console.warn('finDel err:', e));
+  try {
+    await deleteDoc(doc(collection(window._fbDb, col), id));
+    console.log('[finDeleteDoc] ok:', col, id);
+    finUpdateLocalCache(uid);
+  } catch(e) {
+    console.error('[finDeleteDoc] ERRO:', e.message);
+    showToast('⚠️ Erro ao excluir: ' + e.message, 'error');
+  }
+}
+
+function finUpdateLocalCache(uid) {
+  if (!uid) return;
+  try {
+    const savedCats = _finCategorias.filter(c => !FIN_DEFAULT_CATS.find(d => d.id === c.id));
+    localStorage.setItem('fin_cache_' + uid, JSON.stringify({
+      lancamentos: _finLancamentos, cartoes: _finCartoes,
+      gastos: _finGastosCartao, categorias: savedCats
+    }));
+  } catch(e) { console.warn('[finUpdateLocalCache]', e.message); }
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
@@ -5328,11 +5383,26 @@ function renderFinCategories() {
 
 // ── Init Financeiro ───────────────────────────────────────────────────────────
 async function initFinModule() {
+  const uid = finGetUID();
+  console.log('[initFinModule] uid=', uid);
+
+  if (uid) {
+    // Teste rápido de permissão antes de carregar
+    try {
+      const { collection, doc, setDoc, deleteDoc } = window._fbFns;
+      const testId = '_test_' + uid;
+      await setDoc(doc(collection(window._fbDb, 'fin_lancamentos'), testId), { user_id: uid, _test: true });
+      await deleteDoc(doc(collection(window._fbDb, 'fin_lancamentos'), testId));
+      console.log('[initFinModule] ✓ permissões ok');
+    } catch(e) {
+      console.error('[initFinModule] ✗ ERRO DE PERMISSÃO:', e.message);
+      showToast('⚠️ Sem permissão no banco. Verifique as Regras do Firestore.', 'error');
+    }
+  }
+
   await finLoadAll();
-  // Populate selects
   finPopulateMeses('fin-filter-month', finCurrMonth());
 
-  // Populate rep-month select
   const rm = document.getElementById('fin-rep-month');
   if (rm) {
     const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
