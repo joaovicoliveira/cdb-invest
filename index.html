@@ -5464,8 +5464,10 @@ async function saveFinSubcategoria() {
   const icone = document.getElementById('fin-f-sub-icone').value.trim() || '•';
   const catId = document.getElementById('fin-f-sub-catid').value;
   if (!nome || !catId) { showToast('Preencha nome e categoria!', 'error'); return; }
+  const uid = finGetUID();
+  if (!uid) { showToast('Usuário não autenticado.', 'error'); return; }
   const id = _finEditingId || 'usub_' + Date.now();
-  const obj = { id, cat_id: catId, nome, icone };
+  const obj = { id, cat_id: catId, nome, icone, user_id: uid };
   if (_finEditingId) { _finSubcategorias = _finSubcategorias.filter(x => x.id !== id); }
   _finSubcategorias.push(obj);
   await finSaveDoc('fin_subcategorias', id, obj);
