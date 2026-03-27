@@ -5226,7 +5226,14 @@ function openFinModal(type, editId, preCartaoId) {
         document.getElementById('fin-f-gc-categoria').value = g.categoria_id;
         document.getElementById('fin-f-gc-parcelas').value = g.parcelas || 1;
         document.getElementById('fin-f-gc-obs').value = g.obs || '';
+
+	  finGcCatChange(); // carrega as subcategorias
+  			const subSel = document.getElementById('fin-f-gc-subcategoria');
+ 			 if (subSel && g.subcategoria_id) {
+    			subSel.value = g.subcategoria_id;
       }
+	document.getElementById('fin-f-gc-parcelas').value = g.parcelas || 1;
+ 		 document.getElementById('fin-f-gc-obs').value = g.obs || '';
     } else {
       document.getElementById('fin-f-gc-desc').value = '';
       document.getElementById('fin-f-gc-valor').value = '';
