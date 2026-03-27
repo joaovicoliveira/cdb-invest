@@ -5085,64 +5085,58 @@ function finPopulateYears(selId) {
 // ── Firestore ─────────────────────────────────────────────────────────────────
 async function finLoadAll() {
   const uid = finGetUID();
-  if (!uid) { console.warn('[finLoadAll] sem uid'); _finCategorias = [...FIN_DEFAULT_CATS]; _finSubcategorias = [...FIN_DEFAULT_SUBCATS]; return; }
+  if (!uid) {
+    _finCategorias = [...FIN_DEFAULT_CATS];
+    _finSubcategorias = [...FIN_DEFAULT_SUBCATS];
+    return;
+  }
   const { collection, getDocs, query, where } = window._fbFns;
   const db = window._fbDb;
-  console.log('[finLoadAll] carregando uid=', uid);
-  try {
-    const snap = async (col) => {
-      const q = query(collection(db, col), where('user_id', '==', uid));
-      const s = await getDocs(q);
-      console.log(`[finLoadAll] ${col}: ${s.docs.length} docs`);
-      return s.docs.map(d => d.data());
-    };
-    _finLancamentos  = await snap('fin_lancamentos');
-    _finCartoes      = await snap('fin_cartoes');
-    _finGastosCartao = await snap('fin_gastos_cartao');
-    const savedCats  = await snap('fin_categorias');
-    const savedSubs  = await snap('fin_subcategorias');
-    const userCatIds = savedCats.map(c => c.id);
-    const userSubIds = savedSubs.map(s => s.id);
-    _finCategorias   = [...FIN_DEFAULT_CATS.filter(c => !userCatIds.includes(c.id)), ...savedCats];
-    _finSubcategorias = [...FIN_DEFAULT_SUBCATS.filter(s => !userSubIds.includes(s.id)), ...savedSubs];
 
-    // Cache local
+  const snapCol = async (col) => {
+    const q = query(collection(db, col), where('user_id', '==', uid));
+    const s = await getDocs(q);
+    return s.docs.map(d => ({ id: d.id, ...d.data() }));
+  };
+
+  // Carrega cada coleção individualmente para isolar falhas
+  const safeSnap = async (col) => {
+    try { return await snapCol(col); }
+    catch(e) {
+      console.error('[finLoadAll] erro em', col, ':', e.code, e.message);
+      showToast('⚠️ Erro ao carregar ' + col + ': ' + e.message, 'error');
+      return [];
+    }
+  };
+
+  _finLancamentos  = await safeSnap('fin_lancamentos');
+  _finCartoes      = await safeSnap('fin_cartoes');
+  _finGastosCartao = await safeSnap('fin_gastos_cartao');
+  const savedCats  = await safeSnap('fin_categorias');
+  const savedSubs  = await safeSnap('fin_subcategorias');
+
+  const userCatIds = savedCats.map(c => c.id);
+  const userSubIds = savedSubs.map(s => s.id);
+  _finCategorias    = [...FIN_DEFAULT_CATS.filter(c => !userCatIds.includes(c.id)), ...savedCats];
+  _finSubcategorias = [...FIN_DEFAULT_SUBCATS.filter(s => !userSubIds.includes(s.id)), ...savedSubs];
+
+  // Persiste cache local
+  try {
     localStorage.setItem('fin_cache_' + uid, JSON.stringify({
       lancamentos: _finLancamentos, cartoes: _finCartoes,
       gastos: _finGastosCartao, categorias: savedCats, subcategorias: savedSubs
     }));
-    console.log('[finLoadAll] ok — lanc:', _finLancamentos.length, 'cartoes:', _finCartoes.length, 'subcats:', _finSubcategorias.length);
-  } catch(e) {
-    console.warn('[finLoadAll] erro Firestore:', e.message, '— tentando cache local');
-    try {
-      const cache = JSON.parse(localStorage.getItem('fin_cache_' + uid) || '{}');
-      _finLancamentos  = cache.lancamentos  || [];
-      _finCartoes      = cache.cartoes      || [];
-      _finGastosCartao = cache.gastos       || [];
-      const savedCats  = cache.categorias   || [];
-      const savedSubs  = cache.subcategorias || [];
-      const userCatIds = savedCats.map(c => c.id);
-      const userSubIds = savedSubs.map(s => s.id);
-      _finCategorias   = [...FIN_DEFAULT_CATS.filter(c => !userCatIds.includes(c.id)), ...savedCats];
-      _finSubcategorias = [...FIN_DEFAULT_SUBCATS.filter(s => !userSubIds.includes(s.id)), ...savedSubs];
-    } catch(e2) { _finCategorias = [...FIN_DEFAULT_CATS]; _finSubcategorias = [...FIN_DEFAULT_SUBCATS]; }
-  }
+  } catch(_) {}
 }
 
 async function finSaveDoc(col, id, data) {
   const uid = finGetUID();
   if (!uid) { console.warn('[finSaveDoc] sem uid, não salvo'); return; }
   const { collection, doc, setDoc } = window._fbFns;
+  // user_id já vem no data; garante mesmo assim
   const docData = { ...data, user_id: uid };
-  try {
-    await setDoc(doc(collection(window._fbDb, col), id), docData);
-    console.log('[finSaveDoc] ok:', col, id);
-    // Atualiza cache local
-    finUpdateLocalCache(uid);
-  } catch(e) {
-    console.error('[finSaveDoc] ERRO:', col, id, e.message);
-    showToast('⚠️ Erro ao salvar no banco: ' + e.message, 'error');
-  }
+  await setDoc(doc(collection(window._fbDb, col), id), docData);
+  finUpdateLocalCache(uid);
 }
 
 async function finDeleteDoc(col, id) {
@@ -5357,7 +5351,9 @@ async function saveFinLancamento() {
   const obj = { id, descricao: desc, valor, data, tipo, categoria_id: catId, subcategoria_id: subId, recorrente: rec, obs };
   if (_finEditingId) { _finLancamentos = _finLancamentos.filter(x => x.id !== id); }
   _finLancamentos.push(obj);
-  await finSaveDoc('fin_lancamentos', id, obj);
+  try {
+    await finSaveDoc('fin_lancamentos', id, obj);
+  } catch(e) { showToast('⚠️ Erro ao salvar: ' + e.message, 'error'); return; }
   closeFinModal(); renderFinAll();
   showToast('✓ Lançamento salvo!', 'success');
 }
@@ -5382,7 +5378,9 @@ async function saveFinCartao() {
   const obj = { id, nome, bandeira, limite, fechamento, vencimento, cor };
   if (_finEditingId) { _finCartoes = _finCartoes.filter(x => x.id !== id); }
   _finCartoes.push(obj);
-  await finSaveDoc('fin_cartoes', id, obj);
+  try {
+    await finSaveDoc('fin_cartoes', id, obj);
+  } catch(e) { showToast('⚠️ Erro ao salvar: ' + e.message, 'error'); return; }
   closeFinModal(); renderFinAll();
   showToast('✓ Cartão salvo!', 'success');
 }
@@ -5418,7 +5416,9 @@ async function saveFinGastoCartao() {
   const obj = { id, descricao:desc, valor, data, cartao_id:cartaoId, categoria_id:catId, subcategoria_id:subId, parcelas, obs };
   if (_finEditingId) { _finGastosCartao = _finGastosCartao.filter(x=>x.id!==id); }
   _finGastosCartao.push(obj);
-  await finSaveDoc('fin_gastos_cartao', id, obj);
+  try {
+    await finSaveDoc('fin_gastos_cartao', id, obj);
+  } catch(e) { showToast('⚠️ Erro ao salvar: ' + e.message, 'error'); return; }
   closeFinModal(); renderFinAll();
   showToast('✓ Gasto registrado!','success');
 }
@@ -5441,7 +5441,9 @@ async function saveFinCategoria() {
   const obj = { id, nome, tipo, icone, cor };
   if (_finEditingId) { _finCategorias = _finCategorias.filter(x => x.id !== id); }
   _finCategorias.push(obj);
-  await finSaveDoc('fin_categorias', id, obj);
+  try {
+    await finSaveDoc('fin_categorias', id, obj);
+  } catch(e) { showToast('⚠️ Erro ao salvar: ' + e.message, 'error'); return; }
   closeFinModal(); renderFinAll();
   showToast('✓ Categoria salva!', 'success');
 }
@@ -5460,17 +5462,20 @@ async function deleteFinCategoria(id) {
 
 // ── Subcategoria CRUD ─────────────────────────────────────────────────────────
 async function saveFinSubcategoria() {
-  const nome  = document.getElementById('fin-f-sub-nome').value.trim();
-  const icone = document.getElementById('fin-f-sub-icone').value.trim() || '•';
-  const catId = document.getElementById('fin-f-sub-catid').value;
-  if (!nome || !catId) { showToast('Preencha nome e categoria!', 'error'); return; }
+  const nome  = (document.getElementById('fin-f-sub-nome')?.value  || '').trim();
+  const icone = (document.getElementById('fin-f-sub-icone')?.value || '').trim() || '•';
+  const catId = (document.getElementById('fin-f-sub-catid')?.value || '').trim();
+  if (!nome)  { showToast('Preencha o nome da subcategoria!', 'error'); return; }
+  if (!catId) { showToast('Erro: categoria não identificada. Feche e abra novamente.', 'error'); return; }
   const uid = finGetUID();
-  if (!uid) { showToast('Usuário não autenticado.', 'error'); return; }
-  const id = _finEditingId || 'usub_' + Date.now();
+  if (!uid)   { showToast('Usuário não autenticado.', 'error'); return; }
+  const id  = _finEditingId || ('usub_' + Date.now());
   const obj = { id, cat_id: catId, nome, icone, user_id: uid };
   if (_finEditingId) { _finSubcategorias = _finSubcategorias.filter(x => x.id !== id); }
   _finSubcategorias.push(obj);
-  await finSaveDoc('fin_subcategorias', id, obj);
+  try {
+    await finSaveDoc('fin_subcategorias', id, obj);
+  } catch(e) { showToast('⚠️ Erro ao salvar: ' + e.message, 'error'); return; }
   closeFinModal(); renderFinAll();
   showToast('✓ Subcategoria salva!', 'success');
 }
