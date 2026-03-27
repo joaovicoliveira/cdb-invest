@@ -1839,15 +1839,68 @@
     <div class="page" id="page-fin-categories">
       <div class="page-header">
         <div>
-          <div class="chart-title">Categorias</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:4px;">Organize seus lançamentos por categoria</div>
+          <div class="chart-title">Categorias &amp; Subcategorias</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:4px;">Organize seus lançamentos. Clique em uma categoria para ver o dashboard e gerenciar subcategorias.</div>
         </div>
         <button class="btn btn-primary btn-sm" onclick="openFinModal('categoria')">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Nova Categoria
         </button>
       </div>
-      <div id="fin-categories-grid" class="fin-categories-grid"></div>
+      <div id="fin-categories-list"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         MÓDULO FINANCEIRO — DASHBOARD DE CATEGORIA
+    ═══════════════════════════════════════════════ -->
+    <div class="page" id="page-fin-cat-dashboard">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="goPage('fin-categories')">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Voltar
+        </button>
+        <div id="fin-catdash-header" style="flex:1;display:flex;align-items:center;gap:12px;"></div>
+        <select id="fin-catdash-month" class="fin-select" onchange="renderCatDashboard()"></select>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid stats-3col mb-20">
+        <div class="stat-card green">
+          <div class="stat-label">Total Gasto</div>
+          <div class="stat-value mono" id="fin-catdash-total">R$ 0,00</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">Lançamentos</div>
+          <div class="stat-value mono" id="fin-catdash-count">0</div>
+        </div>
+        <div class="stat-card gold">
+          <div class="stat-label">Subcategoria Top</div>
+          <div class="stat-value mono" id="fin-catdash-topsub" style="font-size:14px;">—</div>
+        </div>
+      </div>
+
+      <!-- Chart + subcategoria breakdown -->
+      <div class="grid-2 mb-20">
+        <div class="card">
+          <div class="chart-title">Gastos por Subcategoria</div>
+          <div class="chart-container" style="height:240px;"><canvas id="fin-catdash-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="chart-title">Subcategorias</div>
+          <div id="fin-catdash-subcats-list"></div>
+        </div>
+      </div>
+
+      <!-- Lançamentos da categoria -->
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:16px;">Lançamentos desta Categoria</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data</th><th>Descrição</th><th>Subcategoria</th><th>Valor</th></tr></thead>
+            <tbody id="fin-catdash-tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -2007,7 +2060,11 @@
         </div>
         <div class="form-group">
           <label>Categoria</label>
-          <select id="fin-f-categoria"></select>
+          <select id="fin-f-categoria" onchange="finCatChange()"></select>
+        </div>
+        <div class="form-group" id="fin-f-subcat-group">
+          <label>Subcategoria (opcional)</label>
+          <select id="fin-f-subcategoria"><option value="">Sem subcategoria</option></select>
         </div>
         <div class="form-group" id="fin-f-recorrente-group">
           <label>Recorrência</label>
@@ -2089,7 +2146,11 @@
         </div>
         <div class="form-group">
           <label>Categoria</label>
-          <select id="fin-f-gc-categoria"></select>
+          <select id="fin-f-gc-categoria" onchange="finGcCatChange()"></select>
+        </div>
+        <div class="form-group">
+          <label>Subcategoria (opcional)</label>
+          <select id="fin-f-gc-subcategoria"><option value="">Sem subcategoria</option></select>
         </div>
         <div class="form-group">
           <label>Parcelas</label>
@@ -2133,6 +2194,32 @@
       <div class="form-actions">
         <button class="btn btn-ghost" onclick="closeFinModal()">Cancelar</button>
         <button class="btn btn-primary" onclick="saveFinCategoria()">Salvar</button>
+      </div>
+    </div>
+
+    <!-- SUBCATEGORIA FORM -->
+    <div id="fin-form-subcategoria" style="display:none;">
+      <input type="hidden" id="fin-f-sub-catid">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;align-items:center;gap:10px;">
+        <span id="fin-f-sub-cat-badge" style="font-size:22px;"></span>
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;">Categoria</div>
+          <div id="fin-f-sub-cat-nome" style="font-weight:600;font-size:14px;"></div>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Nome da Subcategoria</label>
+          <input type="text" id="fin-f-sub-nome" placeholder="Ex: Supermercado, iFood...">
+        </div>
+        <div class="form-group">
+          <label>Ícone (emoji)</label>
+          <input type="text" id="fin-f-sub-icone" placeholder="🛒" maxlength="4" style="font-size:20px;text-align:center;">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeFinModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveFinSubcategoria()">Salvar</button>
       </div>
     </div>
 
@@ -2519,7 +2606,8 @@ const pageTitles = {
   'fin-cards':       'Cartões de Crédito',
   'fin-card-detail': 'Detalhe do Cartão',
   'fin-reports':     'Relatórios Mensais',
-  'fin-categories':  'Categorias'
+  'fin-categories':  'Categorias',
+  'fin-cat-dashboard': 'Dashboard de Categoria'
 };
 function goPage(id, silent) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2578,6 +2666,7 @@ function goPage(id, silent) {
     renderFinReports();
   }
   if (id === 'fin-categories') renderFinCategories();
+  if (id === 'fin-cat-dashboard') { finPopulateMeses('fin-catdash-month', finCurrMonth()); renderCatDashboard(); }
   closeSidebar();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -4897,6 +4986,9 @@ let _finModalType    = '';
 let _finActiveCardId = null;
 let _finCharts       = {};
 
+// Categorias agora têm subcategorias: { id, catId, nome, icone }
+let _finSubcategorias = []; // { id, cat_id, nome, icone, user_id }
+
 const FIN_DEFAULT_CATS = [
   { id:'cat_alimentacao',  nome:'Alimentação',   tipo:'despesa', icone:'🍕', cor:'#f59e0b' },
   { id:'cat_transporte',   nome:'Transporte',    tipo:'despesa', icone:'🚗', cor:'#3b82f6' },
@@ -4913,11 +5005,52 @@ const FIN_DEFAULT_CATS = [
   { id:'cat_outros_desp',  nome:'Outros (Desp.)',tipo:'despesa', icone:'📦', cor:'#6b7280' },
 ];
 
+const FIN_DEFAULT_SUBCATS = [
+  // Alimentação
+  { id:'sub_mercado',    cat_id:'cat_alimentacao', nome:'Mercado',      icone:'🛒' },
+  { id:'sub_padaria',    cat_id:'cat_alimentacao', nome:'Padaria',      icone:'🍞' },
+  { id:'sub_restaurante',cat_id:'cat_alimentacao', nome:'Restaurante',  icone:'🍔' },
+  { id:'sub_delivery',   cat_id:'cat_alimentacao', nome:'Delivery',     icone:'🛵' },
+  { id:'sub_cafeteria',  cat_id:'cat_alimentacao', nome:'Cafeteria',    icone:'☕' },
+  { id:'sub_bar',        cat_id:'cat_alimentacao', nome:'Bares / Baladas', icone:'🍺' },
+  { id:'sub_acougue',    cat_id:'cat_alimentacao', nome:'Açougue / Hortifruti', icone:'🥩' },
+  // Transporte
+  { id:'sub_combustivel',cat_id:'cat_transporte',  nome:'Combustível',  icone:'⛽' },
+  { id:'sub_uber',       cat_id:'cat_transporte',  nome:'Uber / 99',    icone:'🚕' },
+  { id:'sub_onibus',     cat_id:'cat_transporte',  nome:'Ônibus / Metrô',icone:'🚌' },
+  { id:'sub_estacionamento',cat_id:'cat_transporte',nome:'Estacionamento',icone:'🅿️' },
+  { id:'sub_manutencao', cat_id:'cat_transporte',  nome:'Manutenção',   icone:'🔧' },
+  // Saúde
+  { id:'sub_farmacia',   cat_id:'cat_saude',       nome:'Farmácia',     icone:'💊' },
+  { id:'sub_medico',     cat_id:'cat_saude',       nome:'Médico / Consulta', icone:'🩺' },
+  { id:'sub_academia',   cat_id:'cat_saude',       nome:'Academia',     icone:'🏋️' },
+  { id:'sub_plano_saude',cat_id:'cat_saude',       nome:'Plano de Saúde',icone:'🏥' },
+  // Moradia
+  { id:'sub_aluguel',    cat_id:'cat_moradia',     nome:'Aluguel',      icone:'🏠' },
+  { id:'sub_condominio', cat_id:'cat_moradia',     nome:'Condomínio',   icone:'🏢' },
+  { id:'sub_luz',        cat_id:'cat_moradia',     nome:'Energia Elétrica',icone:'⚡' },
+  { id:'sub_agua',       cat_id:'cat_moradia',     nome:'Água / Saneamento',icone:'💧' },
+  { id:'sub_internet',   cat_id:'cat_moradia',     nome:'Internet / TV',icone:'📡' },
+  // Lazer
+  { id:'sub_cinema',     cat_id:'cat_lazer',       nome:'Cinema / Teatro',icone:'🎬' },
+  { id:'sub_viagem',     cat_id:'cat_lazer',       nome:'Viagem',       icone:'✈️' },
+  { id:'sub_streaming',  cat_id:'cat_lazer',       nome:'Streaming',    icone:'📺' },
+  { id:'sub_jogos',      cat_id:'cat_lazer',       nome:'Jogos',        icone:'🎮' },
+  // Salário
+  { id:'sub_salario_principal',cat_id:'cat_salario',nome:'Salário',     icone:'💼' },
+  { id:'sub_ferias',     cat_id:'cat_salario',     nome:'Férias / 13º', icone:'🏖️' },
+  { id:'sub_bonus',      cat_id:'cat_salario',     nome:'Bônus / PLR',  icone:'🎯' },
+];
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function finGetUID() { return _currentUser ? _currentUser.id : null; }
 function finCurrMonth() { return new Date().toISOString().slice(0, 7); }
-function finGetCat(id) { return _finCategorias.find(c => c.id === id) || { nome: id || '—', icone: '📦', cor: '#6b7280' }; }
+function finGetCat(id) { return _finCategorias.find(c => c.id === id) || { nome: '—', icone: '📦', cor: '#6b7280' }; }
+function finGetSubcat(id) { return _finSubcategorias.find(s => s.id === id) || null; }
+function finGetSubcatsByCat(catId) { return _finSubcategorias.filter(s => s.cat_id === catId); }
 function finGetCard(id) { return _finCartoes.find(c => c.id === id) || { nome: '—', cor: '#888' }; }
+function finIsDefaultSubcat(id) { return !!FIN_DEFAULT_SUBCATS.find(s => s.id === id); }
+function finIsDefaultCat(id) { return !!FIN_DEFAULT_CATS.find(c => c.id === id); }
 
 function finGetMoneyValue(el) {
   const raw = el.value.replace(/[^\d,]/g, '').replace(',', '.');
@@ -4952,7 +5085,7 @@ function finPopulateYears(selId) {
 // ── Firestore ─────────────────────────────────────────────────────────────────
 async function finLoadAll() {
   const uid = finGetUID();
-  if (!uid) { console.warn('[finLoadAll] sem uid'); _finCategorias = [...FIN_DEFAULT_CATS]; return; }
+  if (!uid) { console.warn('[finLoadAll] sem uid'); _finCategorias = [...FIN_DEFAULT_CATS]; _finSubcategorias = [...FIN_DEFAULT_SUBCATS]; return; }
   const { collection, getDocs, query, where } = window._fbFns;
   const db = window._fbDb;
   console.log('[finLoadAll] carregando uid=', uid);
@@ -4967,27 +5100,32 @@ async function finLoadAll() {
     _finCartoes      = await snap('fin_cartoes');
     _finGastosCartao = await snap('fin_gastos_cartao');
     const savedCats  = await snap('fin_categorias');
+    const savedSubs  = await snap('fin_subcategorias');
     const userCatIds = savedCats.map(c => c.id);
+    const userSubIds = savedSubs.map(s => s.id);
     _finCategorias   = [...FIN_DEFAULT_CATS.filter(c => !userCatIds.includes(c.id)), ...savedCats];
+    _finSubcategorias = [...FIN_DEFAULT_SUBCATS.filter(s => !userSubIds.includes(s.id)), ...savedSubs];
 
-    // Salva cache local
+    // Cache local
     localStorage.setItem('fin_cache_' + uid, JSON.stringify({
       lancamentos: _finLancamentos, cartoes: _finCartoes,
-      gastos: _finGastosCartao, categorias: savedCats
+      gastos: _finGastosCartao, categorias: savedCats, subcategorias: savedSubs
     }));
-    console.log('[finLoadAll] ok — lanc:', _finLancamentos.length, 'cartoes:', _finCartoes.length);
+    console.log('[finLoadAll] ok — lanc:', _finLancamentos.length, 'cartoes:', _finCartoes.length, 'subcats:', _finSubcategorias.length);
   } catch(e) {
     console.warn('[finLoadAll] erro Firestore:', e.message, '— tentando cache local');
-    // Fallback: localStorage cache
     try {
       const cache = JSON.parse(localStorage.getItem('fin_cache_' + uid) || '{}');
       _finLancamentos  = cache.lancamentos  || [];
       _finCartoes      = cache.cartoes      || [];
       _finGastosCartao = cache.gastos       || [];
       const savedCats  = cache.categorias   || [];
+      const savedSubs  = cache.subcategorias || [];
       const userCatIds = savedCats.map(c => c.id);
+      const userSubIds = savedSubs.map(s => s.id);
       _finCategorias   = [...FIN_DEFAULT_CATS.filter(c => !userCatIds.includes(c.id)), ...savedCats];
-    } catch(e2) { _finCategorias = [...FIN_DEFAULT_CATS]; }
+      _finSubcategorias = [...FIN_DEFAULT_SUBCATS.filter(s => !userSubIds.includes(s.id)), ...savedSubs];
+    } catch(e2) { _finCategorias = [...FIN_DEFAULT_CATS]; _finSubcategorias = [...FIN_DEFAULT_SUBCATS]; }
   }
 }
 
@@ -5023,10 +5161,11 @@ async function finDeleteDoc(col, id) {
 function finUpdateLocalCache(uid) {
   if (!uid) return;
   try {
-    const savedCats = _finCategorias.filter(c => !FIN_DEFAULT_CATS.find(d => d.id === c.id));
+    const savedCats = _finCategorias.filter(c => !finIsDefaultCat(c.id));
+    const savedSubs = _finSubcategorias.filter(s => !finIsDefaultSubcat(s.id));
     localStorage.setItem('fin_cache_' + uid, JSON.stringify({
       lancamentos: _finLancamentos, cartoes: _finCartoes,
-      gastos: _finGastosCartao, categorias: savedCats
+      gastos: _finGastosCartao, categorias: savedCats, subcategorias: savedSubs
     }));
   } catch(e) { console.warn('[finUpdateLocalCache]', e.message); }
 }
@@ -5036,17 +5175,18 @@ function openFinModal(type, editId, preCartaoId) {
   _finModalType = type;
   _finEditingId = editId || null;
   const modal = document.getElementById('fin-modal');
-  const forms = ['lancamento','cartao','gasto-cartao','categoria'];
+  const forms = ['lancamento','cartao','gasto-cartao','categoria','subcategoria'];
   forms.forEach(f => { const el = document.getElementById('fin-form-' + f); if (el) el.style.display = 'none'; });
 
   const titles = {
-    'receita':       editId ? 'Editar Receita'       : 'Nova Receita',
-    'despesa':       editId ? 'Editar Despesa'        : 'Nova Despesa',
-    'despesa-fixa':  editId ? 'Editar Despesa Fixa'   : 'Nova Despesa Fixa',
-    'lancamento':    editId ? 'Editar Lançamento'     : 'Novo Lançamento',
-    'cartao':        editId ? 'Editar Cartão'         : 'Novo Cartão',
-    'gasto-cartao':  editId ? 'Editar Gasto'          : 'Gasto no Cartão',
-    'categoria':     editId ? 'Editar Categoria'      : 'Nova Categoria',
+    'receita':        editId ? 'Editar Receita'        : 'Nova Receita',
+    'despesa':        editId ? 'Editar Despesa'         : 'Nova Despesa',
+    'despesa-fixa':   editId ? 'Editar Despesa Fixa'    : 'Nova Despesa Fixa',
+    'lancamento':     editId ? 'Editar Lançamento'      : 'Novo Lançamento',
+    'cartao':         editId ? 'Editar Cartão'          : 'Novo Cartão',
+    'gasto-cartao':   editId ? 'Editar Gasto'           : 'Gasto no Cartão',
+    'categoria':      editId ? 'Editar Categoria'       : 'Nova Categoria',
+    'subcategoria':   editId ? 'Editar Subcategoria'    : 'Nova Subcategoria',
   };
   document.getElementById('fin-modal-title').textContent = titles[type] || 'Novo';
 
@@ -5079,6 +5219,7 @@ function openFinModal(type, editId, preCartaoId) {
       if (sel) sel.value = cardToPreselect;
     }
     finPopulateCatSelect('fin-f-gc-categoria', 'despesa');
+    finGcCatChange();
     document.getElementById('fin-f-gc-data').value = new Date().toISOString().slice(0,10);
     document.getElementById('fin-f-gc-parcelas').value = 1;
     if (editId) {
@@ -5112,6 +5253,20 @@ function openFinModal(type, editId, preCartaoId) {
       document.getElementById('fin-f-cat-icone').value = '';
       document.getElementById('fin-f-cat-cor').value = '#00e5b0';
     }
+  } else if (type === 'subcategoria') {
+    document.getElementById('fin-form-subcategoria').style.display = '';
+    const catId = preCartaoId || (editId ? (_finSubcategorias.find(s=>s.id===editId)||{}).cat_id : '');
+    document.getElementById('fin-f-sub-catid').value = catId || '';
+    const cat = catId ? finGetCat(catId) : null;
+    document.getElementById('fin-f-sub-cat-badge').textContent = cat ? cat.icone : '';
+    document.getElementById('fin-f-sub-cat-nome').textContent  = cat ? cat.nome  : '';
+    if (editId) {
+      const s = _finSubcategorias.find(x => x.id === editId);
+      if (s) { document.getElementById('fin-f-sub-nome').value = s.nome; document.getElementById('fin-f-sub-icone').value = s.icone; }
+    } else {
+      document.getElementById('fin-f-sub-nome').value = '';
+      document.getElementById('fin-f-sub-icone').value = '';
+    }
   } else {
     // receita / despesa / despesa-fixa / lancamento
     document.getElementById('fin-form-lancamento').style.display = '';
@@ -5137,6 +5292,9 @@ function openFinModal(type, editId, preCartaoId) {
         if (tipoGroup) tipoGroup.style.display = '';
         finTipoChange();
         document.getElementById('fin-f-categoria').value = l.categoria_id || '';
+        finCatChange();
+        const subSel = document.getElementById('fin-f-subcategoria');
+        if (subSel && l.subcategoria_id) subSel.value = l.subcategoria_id;
         document.getElementById('fin-f-recorrente').value = l.recorrente || 'nao';
         document.getElementById('fin-f-obs').value = l.obs || '';
       }
@@ -5145,6 +5303,7 @@ function openFinModal(type, editId, preCartaoId) {
       document.getElementById('fin-f-valor').value = '';
       document.getElementById('fin-f-recorrente').value = 'nao';
       document.getElementById('fin-f-obs').value = '';
+      finCatChange();
     }
   }
   modal.style.display = 'flex';
@@ -5156,6 +5315,16 @@ function closeFinModalOutside(e) { if (e.target === document.getElementById('fin
 function finTipoChange() {
   const tipo = document.getElementById('fin-f-tipo')?.value;
   finPopulateCatSelect('fin-f-categoria', tipo === 'receita' ? 'receita' : 'despesa');
+  finCatChange();
+}
+
+function finCatChange() {
+  const catId = document.getElementById('fin-f-categoria')?.value;
+  const subSel = document.getElementById('fin-f-subcategoria');
+  if (!subSel) return;
+  const subs = catId ? finGetSubcatsByCat(catId) : [];
+  subSel.innerHTML = '<option value="">Sem subcategoria</option>' +
+    subs.map(s => `<option value="${s.id}">${s.icone} ${s.nome}</option>`).join('');
 }
 
 function finPopulateCatSelect(selId, filterTipo) {
@@ -5175,16 +5344,17 @@ function finPopulateCardSelect(selId) {
 
 // ── CRUD Lançamento ───────────────────────────────────────────────────────────
 async function saveFinLancamento() {
-  const desc = document.getElementById('fin-f-descricao').value.trim();
+  const desc  = document.getElementById('fin-f-descricao').value.trim();
   const valor = finGetMoneyValue(document.getElementById('fin-f-valor'));
   const data  = document.getElementById('fin-f-data').value;
   const tipo  = document.getElementById('fin-f-tipo').value;
   const catId = document.getElementById('fin-f-categoria').value;
+  const subId = document.getElementById('fin-f-subcategoria')?.value || '';
   const rec   = document.getElementById('fin-f-recorrente').value;
   const obs   = document.getElementById('fin-f-obs').value.trim();
   if (!desc || !valor || !data) { showToast('Preencha descrição, valor e data!', 'error'); return; }
   const id = _finEditingId || 'lanc_' + Date.now();
-  const obj = { id, descricao: desc, valor, data, tipo, categoria_id: catId, recorrente: rec, obs };
+  const obj = { id, descricao: desc, valor, data, tipo, categoria_id: catId, subcategoria_id: subId, recorrente: rec, obs };
   if (_finEditingId) { _finLancamentos = _finLancamentos.filter(x => x.id !== id); }
   _finLancamentos.push(obj);
   await finSaveDoc('fin_lancamentos', id, obj);
@@ -5225,22 +5395,32 @@ async function deleteFinCartao(id) {
 }
 
 // ── CRUD Gasto Cartão ─────────────────────────────────────────────────────────
+function finGcCatChange() {
+  const catId = document.getElementById('fin-f-gc-categoria')?.value;
+  const subSel = document.getElementById('fin-f-gc-subcategoria');
+  if (!subSel) return;
+  const subs = catId ? finGetSubcatsByCat(catId) : [];
+  subSel.innerHTML = '<option value="">Sem subcategoria</option>' +
+    subs.map(s=>`<option value="${s.id}">${s.icone} ${s.nome}</option>`).join('');
+}
+
 async function saveFinGastoCartao() {
-  const desc = document.getElementById('fin-f-gc-desc').value.trim();
-  const valor = finGetMoneyValue(document.getElementById('fin-f-gc-valor'));
-  const data  = document.getElementById('fin-f-gc-data').value;
-  const cartaoId = document.getElementById('fin-f-gc-cartao').value;
-  const catId = document.getElementById('fin-f-gc-categoria').value;
-  const parcelas = parseInt(document.getElementById('fin-f-gc-parcelas').value) || 1;
-  const obs = document.getElementById('fin-f-gc-obs').value.trim();
-  if (!desc || !valor || !data || !cartaoId) { showToast('Preencha todos os campos obrigatórios!', 'error'); return; }
+  const desc    = document.getElementById('fin-f-gc-desc').value.trim();
+  const valor   = finGetMoneyValue(document.getElementById('fin-f-gc-valor'));
+  const data    = document.getElementById('fin-f-gc-data').value;
+  const cartaoId= document.getElementById('fin-f-gc-cartao').value;
+  const catId   = document.getElementById('fin-f-gc-categoria').value;
+  const subId   = document.getElementById('fin-f-gc-subcategoria')?.value || '';
+  const parcelas= parseInt(document.getElementById('fin-f-gc-parcelas').value)||1;
+  const obs     = document.getElementById('fin-f-gc-obs').value.trim();
+  if (!desc||!valor||!data||!cartaoId) { showToast('Preencha todos os campos obrigatórios!','error'); return; }
   const id = _finEditingId || 'gc_' + Date.now();
-  const obj = { id, descricao: desc, valor, data, cartao_id: cartaoId, categoria_id: catId, parcelas, obs };
-  if (_finEditingId) { _finGastosCartao = _finGastosCartao.filter(x => x.id !== id); }
+  const obj = { id, descricao:desc, valor, data, cartao_id:cartaoId, categoria_id:catId, subcategoria_id:subId, parcelas, obs };
+  if (_finEditingId) { _finGastosCartao = _finGastosCartao.filter(x=>x.id!==id); }
   _finGastosCartao.push(obj);
   await finSaveDoc('fin_gastos_cartao', id, obj);
   closeFinModal(); renderFinAll();
-  showToast('✓ Gasto registrado!', 'success');
+  showToast('✓ Gasto registrado!','success');
 }
 
 async function deleteFinGastoCartao(id) {
@@ -5252,10 +5432,10 @@ async function deleteFinGastoCartao(id) {
 
 // ── CRUD Categoria ────────────────────────────────────────────────────────────
 async function saveFinCategoria() {
-  const nome = document.getElementById('fin-f-cat-nome').value.trim();
-  const tipo = document.getElementById('fin-f-cat-tipo').value;
+  const nome  = document.getElementById('fin-f-cat-nome').value.trim();
+  const tipo  = document.getElementById('fin-f-cat-tipo').value;
   const icone = document.getElementById('fin-f-cat-icone').value.trim() || '📦';
-  const cor = document.getElementById('fin-f-cat-cor').value;
+  const cor   = document.getElementById('fin-f-cat-cor').value;
   if (!nome) { showToast('Informe o nome da categoria!', 'error'); return; }
   const id = _finEditingId || 'ucat_' + Date.now();
   const obj = { id, nome, tipo, icone, cor };
@@ -5267,11 +5447,38 @@ async function saveFinCategoria() {
 }
 
 async function deleteFinCategoria(id) {
-  if (FIN_DEFAULT_CATS.find(c => c.id === id)) { showToast('Categorias padrão não podem ser excluídas.', 'error'); return; }
-  if (!confirm('Excluir esta categoria?')) return;
+  if (finIsDefaultCat(id)) { showToast('Categorias padrão não podem ser excluídas.', 'error'); return; }
+  if (!confirm('Excluir esta categoria e todas as suas subcategorias?')) return;
   _finCategorias = _finCategorias.filter(x => x.id !== id);
+  // Remove subcats also
+  const subsToDelete = _finSubcategorias.filter(s => s.cat_id === id);
+  _finSubcategorias = _finSubcategorias.filter(s => s.cat_id !== id);
   await finDeleteDoc('fin_categorias', id);
+  for (const s of subsToDelete) await finDeleteDoc('fin_subcategorias', s.id);
   renderFinAll(); showToast('Categoria excluída.', 'info');
+}
+
+// ── Subcategoria CRUD ─────────────────────────────────────────────────────────
+async function saveFinSubcategoria() {
+  const nome  = document.getElementById('fin-f-sub-nome').value.trim();
+  const icone = document.getElementById('fin-f-sub-icone').value.trim() || '•';
+  const catId = document.getElementById('fin-f-sub-catid').value;
+  if (!nome || !catId) { showToast('Preencha nome e categoria!', 'error'); return; }
+  const id = _finEditingId || 'usub_' + Date.now();
+  const obj = { id, cat_id: catId, nome, icone };
+  if (_finEditingId) { _finSubcategorias = _finSubcategorias.filter(x => x.id !== id); }
+  _finSubcategorias.push(obj);
+  await finSaveDoc('fin_subcategorias', id, obj);
+  closeFinModal(); renderFinAll();
+  showToast('✓ Subcategoria salva!', 'success');
+}
+
+async function deleteFinSubcategoria(id) {
+  if (finIsDefaultSubcat(id)) { showToast('Subcategorias padrão não podem ser excluídas.', 'error'); return; }
+  if (!confirm('Excluir esta subcategoria?')) return;
+  _finSubcategorias = _finSubcategorias.filter(x => x.id !== id);
+  await finDeleteDoc('fin_subcategorias', id);
+  renderFinAll(); showToast('Subcategoria excluída.', 'info');
 }
 
 // ── Cálculos ──────────────────────────────────────────────────────────────────
@@ -5298,14 +5505,14 @@ function renderFinAll() {
   const page = document.querySelector('.page.active');
   const pid = page ? page.id : '';
   renderFinDashboard();
-  if (pid === 'page-fin-receitas')     renderFinReceitas();
-  if (pid === 'page-fin-despesas')     renderFinDespesas();
-  if (pid === 'page-fin-cards')        renderFinCardsGrid();
-  if (pid === 'page-fin-card-detail')  renderCardDetail();
-  if (pid === 'page-fin-reports')      renderFinReports();
-  if (pid === 'page-fin-categories')   renderFinCategories();
-  // legacy pages (old fin-transactions kept for compatibility)
-  if (pid === 'page-fin-transactions') renderFinTransactions();
+  if (pid === 'page-fin-receitas')       renderFinReceitas();
+  if (pid === 'page-fin-despesas')       renderFinDespesas();
+  if (pid === 'page-fin-cards')          renderFinCardsGrid();
+  if (pid === 'page-fin-card-detail')    renderCardDetail();
+  if (pid === 'page-fin-reports')        renderFinReports();
+  if (pid === 'page-fin-categories')     renderFinCategories();
+  if (pid === 'page-fin-cat-dashboard')  renderCatDashboard();
+  if (pid === 'page-fin-transactions')   renderFinTransactions();
   updateFinSidebarSummary();
 }
 
@@ -5824,24 +6031,195 @@ function renderFinReports() {
 }
 
 // ── Categorias Page ───────────────────────────────────────────────────────────
+// ── Categorias Page ───────────────────────────────────────────────────────────
 function renderFinCategories() {
-  const grid = document.getElementById('fin-categories-grid');
-  if (!grid) return;
-  grid.innerHTML = _finCategorias.map(c => {
-    const isDefault = !!FIN_DEFAULT_CATS.find(x=>x.id===c.id);
-    const tipoLabel = { receita:'Receita', despesa:'Despesa', ambos:'Ambos' };
-    return `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${c.cor};border-radius:8px;padding:14px;display:flex;align-items:center;gap:12px;position:relative;">
-      <span style="font-size:24px;min-width:32px;text-align:center;">${c.icone}</span>
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:13px;">${c.nome}</div>
-        <div class="text-muted" style="font-size:11px;">${tipoLabel[c.tipo]||c.tipo}${isDefault?' · Padrão':''}</div>
-      </div>
-      <div class="btn-group">
-        <button class="tbl-action-btn" onclick="openFinModal('categoria','${c.id}')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-        ${!isDefault?`<button class="tbl-action-btn tbl-action-danger" onclick="deleteFinCategoria('${c.id}')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>`:''}
-      </div>
+  const el = document.getElementById('fin-categories-list');
+  if (!el) return;
+
+  const despesas = _finCategorias.filter(c => c.tipo === 'despesa' || c.tipo === 'ambos');
+  const receitas = _finCategorias.filter(c => c.tipo === 'receita' || c.tipo === 'ambos');
+
+  const renderGroup = (cats, label) => {
+    if (!cats.length) return '';
+    const rows = cats.map(c => {
+      const subs  = finGetSubcatsByCat(c.id);
+      const isDef = finIsDefaultCat(c.id);
+      const subHtml = subs.map(s => {
+        const isDefSub = finIsDefaultSubcat(s.id);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--surface3);margin-bottom:5px;">
+          <span style="font-size:17px;min-width:24px;text-align:center;">${s.icone}</span>
+          <span style="font-size:13px;font-weight:500;flex:1;">${s.nome}</span>
+          <div class="btn-group">
+            <button class="tbl-action-btn" onclick="event.stopPropagation();openFinModal('subcategoria','${s.id}')" title="Editar">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            ${!isDefSub ? `<button class="tbl-action-btn tbl-action-danger" onclick="event.stopPropagation();deleteFinSubcategoria('${s.id}')" title="Excluir">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            </button>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden;">
+        <div onclick="openCatDashboard('${c.id}')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+          <div style="width:42px;height:42px;border-radius:11px;background:${c.cor}20;display:flex;align-items:center;justify-content:center;font-size:20px;border:1px solid ${c.cor}40;flex-shrink:0;">${c.icone}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:14px;">${c.nome}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;">${subs.length} subcategor${subs.length===1?'ia':'ias'} · ver dashboard →</div>
+          </div>
+          <div class="btn-group" onclick="event.stopPropagation()">
+            <button class="btn btn-ghost btn-sm" onclick="openFinModal('subcategoria',null,'${c.id}')" style="gap:4px;padding:5px 10px;">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Sub
+            </button>
+            <button class="tbl-action-btn" onclick="openFinModal('categoria','${c.id}')" title="Editar">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            ${!isDef ? `<button class="tbl-action-btn tbl-action-danger" onclick="deleteFinCategoria('${c.id}')" title="Excluir">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            </button>` : ''}
+          </div>
+        </div>
+        ${subs.length ? `<div style="padding:6px 16px 14px;">
+          <div style="font-size:9px;color:var(--text3);letter-spacing:1.2px;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Subcategorias</div>
+          ${subHtml}
+          <button class="btn btn-ghost btn-sm" onclick="openFinModal('subcategoria',null,'${c.id}')" style="width:100%;justify-content:center;margin-top:6px;border-style:dashed;font-size:11px;">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nova subcategoria
+          </button>
+        </div>` : `<div style="padding:4px 16px 12px;">
+          <button class="btn btn-ghost btn-sm" onclick="openFinModal('subcategoria',null,'${c.id}')" style="width:100%;justify-content:center;border-style:dashed;font-size:11px;">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar subcategoria
+          </button>
+        </div>`}
+      </div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:28px;">
+      <div style="font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);font-weight:700;margin-bottom:10px;padding-left:2px;">${label}</div>
+      ${rows}
     </div>`;
-  }).join('');
+  };
+
+  el.innerHTML = renderGroup(despesas, '💸 Despesas') + renderGroup(receitas, '💚 Receitas');
+}
+
+// ── Dashboard de Categoria ────────────────────────────────────────────────────
+let _activeCatId = null;
+function openCatDashboard(catId) {
+  _activeCatId = catId;
+  finPopulateMeses('fin-catdash-month', finCurrMonth());
+  goPage('fin-cat-dashboard');
+}
+
+function renderCatDashboard() {
+  const cat = _finCategorias.find(c => c.id === _activeCatId);
+  if (!cat) { goPage('fin-categories'); return; }
+
+  const ym   = document.getElementById('fin-catdash-month')?.value || finCurrMonth();
+  const subs = finGetSubcatsByCat(cat.id);
+
+  // Header
+  const hdr = document.getElementById('fin-catdash-header');
+  if (hdr) hdr.innerHTML = `
+    <div style="width:46px;height:46px;border-radius:13px;background:${cat.cor}20;border:1px solid ${cat.cor}40;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">${cat.icone}</div>
+    <div>
+      <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">${cat.nome}</div>
+      <div style="font-size:11px;color:var(--text3);">${subs.length} subcategoria${subs.length!==1?'s':''}</div>
+    </div>`;
+
+  // Collect transactions
+  const lancs  = _finLancamentos.filter(l => l.categoria_id === cat.id && l.data && l.data.slice(0,7) === ym);
+  const gastos = _finGastosCartao.filter(g => g.categoria_id === cat.id && g.data && g.data.slice(0,7) === ym);
+  const total  = lancs.reduce((s,l)=>s+l.valor,0) + gastos.reduce((s,g)=>s+(g.valor/(g.parcelas||1)),0);
+  const count  = lancs.length + gastos.length;
+
+  const set = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('fin-catdash-total', fmt(total));
+  set('fin-catdash-count', count);
+
+  // Subcategory breakdown
+  const subMap = {};
+  [...lancs.map(l=>({sid:l.subcategoria_id,val:l.valor})),
+   ...gastos.map(g=>({sid:g.subcategoria_id,val:g.valor/(g.parcelas||1)}))
+  ].forEach(({sid,val})=>{ const k=sid||'__none'; subMap[k]=(subMap[k]||0)+val; });
+
+  // Top subcategoria
+  let topSub = '—'; let topVal = 0;
+  Object.entries(subMap).forEach(([k,v]) => {
+    if (v > topVal) { topVal=v; const s=finGetSubcat(k); topSub = s?`${s.icone} ${s.nome}`:'Sem subcategoria'; }
+  });
+  set('fin-catdash-topsub', topSub);
+
+  // Chart
+  const palette = ['#00e5b0','#2196ff','#9d6fff','#f7b731','#ff5263','#10b981','#f97316','#06b6d4','#ec4899','#84cc16'];
+  const entries = Object.entries(subMap).sort((a,b)=>b[1]-a[1]);
+  const chartLabels=[], chartData=[], chartColors=[];
+  entries.forEach(([k,v],i)=>{
+    const s = k==='__none' ? {nome:'Sem subcategoria',icone:'•'} : finGetSubcat(k);
+    chartLabels.push(s ? `${s.icone} ${s.nome}` : k);
+    chartData.push(v); chartColors.push(palette[i%palette.length]);
+  });
+
+  const ctx = document.getElementById('fin-catdash-chart');
+  if (ctx) {
+    if (window._catDashChart) window._catDashChart.destroy();
+    if (chartData.length) {
+      window._catDashChart = new Chart(ctx, {
+        type:'doughnut',
+        data:{ labels:chartLabels, datasets:[{ data:chartData, backgroundColor:chartColors.map(c=>c+'cc'), borderWidth:0 }] },
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ color:'var(--text2)', font:{size:11}, boxWidth:12 } } } }
+      });
+    }
+  }
+
+  // Subcategory list
+  const subListEl = document.getElementById('fin-catdash-subcats-list');
+  if (subListEl) {
+    const allSubs = [...subs];
+    if (subMap['__none']) allSubs.push({id:'__none',nome:'Sem subcategoria',icone:'•'});
+    const totalVal = Object.values(subMap).reduce((a,v)=>a+v,0)||1;
+    subListEl.innerHTML = allSubs.map((s,i)=>{
+      const val  = subMap[s.id]||0;
+      const pct  = (val/totalVal*100).toFixed(1);
+      const color = palette[i%palette.length];
+      const isDef = finIsDefaultSubcat(s.id);
+      return `<div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-size:16px;min-width:22px;">${s.icone}</span>
+          <span style="font-size:13px;font-weight:600;flex:1;">${s.nome}</span>
+          ${s.id!=='__none' ? `<div class="btn-group">
+            <button class="tbl-action-btn" onclick="openFinModal('subcategoria','${s.id}')"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            ${!isDef ? `<button class="tbl-action-btn tbl-action-danger" onclick="deleteFinSubcategoria('${s.id}')"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>` : ''}
+          </div>` : ''}
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);">${fmt(val)}</span>
+        </div>
+        <div style="height:4px;background:var(--surface3);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .4s;"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;">${pct}% do total</div>
+      </div>`;
+    }).join('') || `<div style="color:var(--text3);font-size:13px;padding:8px 0;">Nenhuma subcategoria.</div>`;
+  }
+
+  // Transactions table
+  const tbody = document.getElementById('fin-catdash-tbody');
+  if (!tbody) return;
+  const all = [
+    ...lancs.map(l=>({data:l.data,desc:l.descricao,sid:l.subcategoria_id,valor:l.valor})),
+    ...gastos.map(g=>({data:g.data,desc:g.descricao,sid:g.subcategoria_id,valor:g.valor/(g.parcelas||1)}))
+  ].sort((a,b)=>b.data>a.data?1:-1);
+
+  tbody.innerHTML = all.length ? all.map(item=>{
+    const sub = item.sid ? finGetSubcat(item.sid) : null;
+    return `<tr>
+      <td class="td-mono" style="white-space:nowrap;">${fmtDate(item.data)}</td>
+      <td class="td-name">${item.desc}</td>
+      <td>${sub?`<span style="font-size:13px;margin-right:4px;">${sub.icone}</span>${sub.nome}`:'<span style="color:var(--text3);font-size:11px;">—</span>'}</td>
+      <td class="td-mono" style="color:var(--danger);">−${fmt(item.valor)}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:32px;">Nenhum lançamento nesta categoria em ${ym}.</td></tr>`;
 }
 
 // ── Init Financeiro ───────────────────────────────────────────────────────────
